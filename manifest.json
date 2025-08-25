@@ -1,0 +1,8 @@
+{
+  "id": "myfirstwidget",
+  "name": "My First Widget",
+  "version": "1.0",
+  "description": "Hello World widget for Cloud Phone",
+  "entry": "index.html",
+  "type": "widget"
+}
