@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <title>האפליקציה שלי</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      font-size: 14px;
+      background: #f0f0f0;
+      color: #222;
+      text-align: center;
+    }
+    header {
+      background: #0055aa;
+      color: white;
+      padding: 4px;
+      font-weight: bold;
+    }
+    .menu {
+      margin-top: 10px;
+    }
+    .item {
+      padding: 6px;
+      margin: 2px;
+      background: white;
+      border: 1px solid #ccc;
+    }
+    .selected {
+      background: #0055aa;
+      color: white;
+    }
+    footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #ddd;
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 2px 4px;
+    }
+  </style>
+</head>
+<body>
+  <header>📱 האפליקציה שלי</header>
+
+  <div class="menu" id="menu">
+    <div class="item selected">אפשרות 1</div>
+    <div class="item">אפשרות 2</div>
+    <div class="item">אפשרות 3</div>
+  </div>
+
+  <footer>
+    <div>בחר</div>
+    <div>חזור</div>
+  </footer>
+
+  <script>
+    let items = document.querySelectorAll(".item");
+    let index = 0;
+
+    function updateSelection() {
+      items.forEach((el, i) => {
+        el.classList.toggle("selected", i === index);
+      });
+    }
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "ArrowDown") {
+        index = (index + 1) % items.length;
+        updateSelection();
+      }
+      if (e.key === "ArrowUp") {
+        index = (index - 1 + items.length) % items.length;
+        updateSelection();
+      }
+      if (e.key === "Enter") {
+        alert("בחרת: " + items[index].textContent);
+      }
+      if (e.key === "SoftRight") {
+        history.back(); // מקש ימני = חזור
+      }
+    });
+  </script>
+</body>
+</html>
