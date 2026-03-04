@@ -35,7 +35,10 @@
 1. העלה את הפרויקט לריפו GitHub ציבורי.
 2. עבור ל-Settings → Pages.
 3. בחר branch `main` ותיקייה `/root`.
-4. הכנס את כתובת ה-Pages ב-CloudPhone Console.
+4. פתח את הדשבורד עם פרמטר `apiBase` שמצביע ל-ESP32, למשל:
+   `https://<user>.github.io/<repo>/?apiBase=http://192.168.1.50`
+   (אפשר גם `?api=...`). הערך נשמר אוטומטית ב-`localStorage` לשימושים הבאים.
+5. הכנס את כתובת ה-Pages ב-CloudPhone Console.
 
 ## ניווט (מקלדת)
 - `ArrowDown` / `ArrowUp` – מעבר בין כפתורי שליטה.

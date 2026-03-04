@@ -281,7 +281,29 @@
   </main>
 
   <script>
-    const API_BASE = "";
+    function normalizeApiBase(value) {
+      if (!value) return "";
+      return value.trim().replace(/\/+$/, "");
+    }
+
+    function resolveApiBase() {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get("apiBase") || params.get("api");
+      if (fromQuery) {
+        localStorage.setItem("roombaApiBase", fromQuery);
+        return normalizeApiBase(fromQuery);
+      }
+
+      const fromStorage = localStorage.getItem("roombaApiBase");
+      if (fromStorage) return normalizeApiBase(fromStorage);
+
+      const fromGlobal = window.ROBOT_API_BASE || window.API_BASE;
+      if (fromGlobal) return normalizeApiBase(fromGlobal);
+
+      return "";
+    }
+
+    const API_BASE = resolveApiBase();
     const REFRESH_MS = 1000;
 
     const chargingLabels = {
@@ -310,6 +332,10 @@
       commandStatus: document.getElementById("commandStatus"),
       actionButtons: [...document.querySelectorAll("button[data-action]")]
     };
+
+    if (!API_BASE && window.location.hostname.endsWith("github.io")) {
+      ui.commandStatus.textContent = "הגדר כתובת API דרך ?apiBase=https://<esp32-host>";
+    }
 
     let cooldownUntil = 0;
 
