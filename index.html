@@ -209,6 +209,37 @@
       padding-bottom: 6px;
     }
 
+    .api-config {
+      display: grid;
+      gap: 8px;
+    }
+
+    .api-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .api-input {
+      flex: 1;
+      min-width: 220px;
+      border: 1px solid var(--line);
+      background: #0f1a34;
+      color: var(--txt);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.9rem;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .api-btn {
+      min-height: 42px;
+      padding: 10px 12px;
+      font-size: 0.84rem;
+      border-radius: 10px;
+    }
+
     @media (min-width: 760px) {
       .app {
         grid-template-columns: 1.1fr 1fr;
@@ -257,6 +288,19 @@
       </div>
     </section>
 
+    <section class="card wide">
+      <h2 class="title">הגדרת חיבור API</h2>
+      <div class="api-config">
+        <div class="mini">הזן כתובת בסיס של ה-ESP32 (לדוגמה: <code>http://192.168.1.50</code>). אפשר גם לפתוח עם <code>?apiBase=...</code>.</div>
+        <div class="api-row">
+          <input class="api-input" id="apiBaseInput" type="url" placeholder="http://192.168.1.50" inputmode="url" />
+          <button class="api-btn primary" id="saveApiBase" type="button">שמור כתובת</button>
+          <button class="api-btn" id="clearApiBase" type="button">נקה</button>
+        </div>
+        <div class="mini">כתובת פעילה: <span id="apiBaseDisplay">--</span></div>
+      </div>
+    </section>
+
     <section class="card">
       <h2 class="title">בקרת הפעלה</h2>
       <div class="controls">
@@ -281,7 +325,26 @@
   </main>
 
   <script>
-    const API_BASE = "";
+    function normalizeApiBase(value) {
+      if (!value) return "";
+      return value.trim().replace(/\/+$/, "");
+    }
+
+    function resolveApiBase() {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get("apiBase") || params.get("api");
+      if (fromQuery) return normalizeApiBase(fromQuery);
+
+      const fromStorage = localStorage.getItem("roombaApiBase");
+      if (fromStorage) return normalizeApiBase(fromStorage);
+
+      const fromGlobal = window.ROBOT_API_BASE || window.API_BASE;
+      if (fromGlobal) return normalizeApiBase(fromGlobal);
+
+      return "";
+    }
+
+    let API_BASE = resolveApiBase();
     const REFRESH_MS = 1000;
 
     const chargingLabels = {
@@ -308,8 +371,41 @@
       bumperRight: document.getElementById("bumperRight"),
       cliff: document.getElementById("cliff"),
       commandStatus: document.getElementById("commandStatus"),
-      actionButtons: [...document.querySelectorAll("button[data-action]")]
+      actionButtons: [...document.querySelectorAll("button[data-action]")],
+      apiBaseInput: document.getElementById("apiBaseInput"),
+      apiBaseDisplay: document.getElementById("apiBaseDisplay"),
+      saveApiBase: document.getElementById("saveApiBase"),
+      clearApiBase: document.getElementById("clearApiBase")
     };
+
+    function isGithubPagesHost() {
+      return window.location.hostname.endsWith("github.io");
+    }
+
+    function setApiBase(value, persist = true) {
+      API_BASE = normalizeApiBase(value);
+      if (persist) {
+        if (API_BASE) {
+          localStorage.setItem("roombaApiBase", API_BASE);
+        } else {
+          localStorage.removeItem("roombaApiBase");
+        }
+      }
+      ui.apiBaseInput.value = API_BASE;
+      ui.apiBaseDisplay.textContent = API_BASE || "לא הוגדרה";
+    }
+
+    setApiBase(API_BASE, false);
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("apiBase") || params.get("api")) {
+      localStorage.setItem("roombaApiBase", API_BASE);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    if (!API_BASE && isGithubPagesHost()) {
+      ui.commandStatus.textContent = "חסר יעד API. הזן כתובת ולחץ 'שמור כתובת'.";
+    }
 
     let cooldownUntil = 0;
 
@@ -354,6 +450,9 @@
     }
 
     async function fetchJson(path, options = {}) {
+      if (!API_BASE && isGithubPagesHost()) {
+        throw new Error("API base לא הוגדר");
+      }
       const res = await fetch(`${API_BASE}${path}`, {
         headers: { "Accept": "application/json" },
         ...options
@@ -410,6 +509,33 @@
 
     ui.actionButtons.forEach(btn => {
       btn.addEventListener("click", () => sendAction(btn.dataset.action));
+    });
+
+    ui.saveApiBase.addEventListener("click", async () => {
+      const raw = ui.apiBaseInput.value;
+      const normalized = normalizeApiBase(raw);
+      if (!normalized) {
+        ui.commandStatus.textContent = "יש להזין כתובת API לפני שמירה.";
+        return;
+      }
+
+      if (!/^https?:\/\//i.test(normalized)) {
+        ui.commandStatus.textContent = "כתובת חייבת להתחיל ב-http:// או https://";
+        return;
+      }
+
+      setApiBase(normalized, true);
+      ui.commandStatus.textContent = "✅ כתובת API נשמרה. בודק חיבור...";
+      await refreshStatus();
+      await refreshSensors();
+    });
+
+    ui.clearApiBase.addEventListener("click", () => {
+      setApiBase("", true);
+      ui.commandStatus.textContent = "כתובת API נוקתה.";
+      if (isGithubPagesHost()) {
+        setOnlineState("offline", "חסר יעד API");
+      }
     });
 
     // תמיכה מקלדת ל-CloudPhone
