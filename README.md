@@ -1,16 +1,42 @@
 # cloudphone
-# אפליקציית CloudPhone לדוגמה
+# Roomba Pro Dashboard ל-CloudPhone
 
-זוהי אפליקציה בסיסית ל־Nokia 105 4G (TA-1546) / CloudPhone.
+דשבורד מובייל מלא לשליטה ב-Roomba דרך REST API (מיועד ל-ESP32 עם SCI).
 
-## הוראות התקנה
-1. העלה את הקוד הזה ל־GitHub בריפו ציבורי.
-2. עבור ל־Settings → Pages.
-3. בחר את ה־branch `main` ותיקייה `/root`.
-4. שמור → תקבל כתובת ציבורית בסגנון:
-5. הכנס את הכתובת הזו ב־CloudPhone Console כ־URL של האפליקציה.
+## יכולות עיקריות
+- שליחת פקודות בזמן אמת: `Clean`, `Spot`, `Safe`, `Stop`.
+- ניטור חיישנים בלייב (`/api/sensors`) אחת לשנייה.
+- תצוגת מצב סוללה (mV + אחוז משוער), מצב טעינה, זרם וכפתורים.
+- סטטוס חיישנים קריטיים: `bumper_left`, `bumper_right`, `cliff`.
+- ממשק רספונסיבי מלא + ניווט מקלדת (מתאים גם ל-CloudPhone).
 
-## ניווט
-- 🔼 / 🔽 = מעבר בין אפשרויות
-- Enter = בחירה
-- Soft Right = חזרה אחורה
+## REST API צפוי מהשרת (ESP32)
+- `GET /api/status`
+- `GET /api/sensors`
+- `POST /api/clean`
+- `POST /api/spot`
+- `POST /api/safe`
+- `POST /api/stop`
+
+## דוגמת JSON ל-`/api/sensors`
+```json
+{
+  "battery_mV": 15840,
+  "charging_state": 2,
+  "current_mA": -520,
+  "buttons": 1,
+  "bumper_left": false,
+  "bumper_right": true,
+  "cliff": false
+}
+```
+
+## התקנה
+1. העלה את הפרויקט לריפו GitHub ציבורי.
+2. עבור ל-Settings → Pages.
+3. בחר branch `main` ותיקייה `/root`.
+4. הכנס את כתובת ה-Pages ב-CloudPhone Console.
+
+## ניווט (מקלדת)
+- `ArrowDown` / `ArrowUp` – מעבר בין כפתורי שליטה.
+- `Enter` – שליחת פקודה מסומנת.
