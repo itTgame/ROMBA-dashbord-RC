@@ -1,5 +1,4 @@
-# cloudphone
-# Roomba Pro Dashboard ל-CloudPhone
+# Roomba Pro Dashboard
 
 דשבורד מובייל מלא לשליטה ב-Roomba דרך REST API (מיועד ל-ESP32 עם SCI).
 
@@ -7,8 +6,8 @@
 - שליחת פקודות בזמן אמת: `Clean`, `Spot`, `Safe`, `Stop`.
 - ניטור חיישנים בלייב (`/api/sensors`) אחת לשנייה.
 - תצוגת מצב סוללה (mV + אחוז משוער), מצב טעינה, זרם וכפתורים.
-- סטטוס חיישנים קריטיים: `bumper_left`, `bumper_right`, `cliff`.
-- ממשק רספונסיבי מלא + ניווט מקלדת (מתאים גם ל-CloudPhone).
+- תצוגה מלאה של כל החיישנים שחוזרים מ-`/api/sensors` (דינמי לפי ה-JSON מהשרת).
+- ממשק רספונסיבי מלא + ניווט מקלדת לדשבורד מובייל.
 
 ## REST API צפוי מהשרת (ESP32)
 - `GET /api/status`

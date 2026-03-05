@@ -6,15 +6,15 @@
   <title>Roomba Pro Dashboard</title>
   <style>
     :root {
-      --bg: #0b1020;
-      --card: #121a30;
+      --bg: #060b16;
+      --card: #101a2d;
       --card-alt: #0f172b;
       --txt: #eef3ff;
       --muted: #9bacd0;
       --ok: #29d178;
       --warn: #f5b642;
       --bad: #ff5d73;
-      --accent: #66a3ff;
+      --accent: #7c9bff;
       --accent2: #58d0ff;
       --line: #223157;
     }
@@ -326,15 +326,12 @@
     </section>
 
     <section class="card wide">
-      <h2 class="title">חיישנים חיים</h2>
-      <div class="toggles">
-        <div class="toggle" id="bumperLeft">Bumper Left: OFF</div>
-        <div class="toggle" id="bumperRight">Bumper Right: OFF</div>
-        <div class="toggle" id="cliff">Cliff: OFF</div>
-      </div>
+      <h2 class="title">חיישנים חיים (כל החיישנים)</h2>
+      <div class="mini">הטבלה מציגה את כל המפתחות שמגיעים מ-<code>/api/sensors</code> בזמן אמת.</div>
+      <div class="sensor-grid" id="sensorGrid"></div>
     </section>
 
-    <section class="footer wide">Dashboard מותאם למובייל ול-CloudPhone • עדכון אוטומטי כל שנייה</section>
+    <section class="footer wide">Roomba Control Dashboard • עדכון אוטומטי כל שנייה</section>
   </main>
 
   <script>
@@ -383,9 +380,7 @@
       chargingCode: document.getElementById("chargingCode"),
       currentMa: document.getElementById("currentMa"),
       buttons: document.getElementById("buttons"),
-      bumperLeft: document.getElementById("bumperLeft"),
-      bumperRight: document.getElementById("bumperRight"),
-      cliff: document.getElementById("cliff"),
+      sensorGrid: document.getElementById("sensorGrid"),
       commandStatus: document.getElementById("commandStatus"),
       actionButtons: [...document.querySelectorAll("button[data-action]")],
       apiBaseInput: document.getElementById("apiBaseInput"),
@@ -414,9 +409,25 @@
       ui.conn.textContent = text;
     }
 
-    function setToggle(el, active, label) {
-      el.classList.toggle("active", !!active);
-      el.textContent = `${label}: ${active ? "ON" : "OFF"}`;
+    function toDisplayValue(value) {
+      if (typeof value === "boolean") return value ? "ON" : "OFF";
+      if (Array.isArray(value)) return value.join(", ");
+      if (value && typeof value === "object") return JSON.stringify(value);
+      return value ?? "--";
+    }
+
+    function renderAllSensors(data) {
+      const keys = Object.keys(data || {}).sort();
+      if (!keys.length) {
+        ui.sensorGrid.innerHTML = '<div class="mini">לא התקבלו נתוני חיישנים.</div>';
+        return;
+      }
+      ui.sensorGrid.innerHTML = keys.map((key) => `
+        <div class="sensor-item">
+          <div class="sensor-name">${key}</div>
+          <div class="sensor-value">${toDisplayValue(data[key])}</div>
+        </div>
+      `).join("");
     }
 
     function applySensorData(data) {
@@ -433,9 +444,7 @@
       ui.chargingState.textContent = chargingLabels[code] || "Unknown";
       ui.buttons.textContent = Number(data.buttons ?? 0);
 
-      setToggle(ui.bumperLeft, !!data.bumper_left, "Bumper Left");
-      setToggle(ui.bumperRight, !!data.bumper_right, "Bumper Right");
-      setToggle(ui.cliff, !!data.cliff, "Cliff");
+      renderAllSensors(data);
 
       const now = new Date();
       ui.lastUpdate.textContent = `עודכן: ${now.toLocaleTimeString("he-IL")}`;
