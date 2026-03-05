@@ -1,8 +1,8 @@
 {
-  "id": "myfirstwidget",
-  "name": "My First Widget",
-  "version": "1.0",
-  "description": "Hello World widget for Cloud Phone",
+  "id": "roomba-pro-dashboard",
+  "name": "Roomba Pro Dashboard",
+  "version": "2.0.0",
+  "description": "Responsive CloudPhone dashboard for controlling and monitoring Roomba via ESP32 REST API",
   "entry": "index.html",
   "type": "widget"
 }
