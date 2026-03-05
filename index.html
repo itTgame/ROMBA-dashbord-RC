@@ -4,14 +4,266 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Roomba Pro Dashboard</title>
-    <link rel="stylesheet" href="style.css" />
+  <style>
+    :root {
+      --bg: #060b16;
+      --card: #101a2d;
+      --card-alt: #0f172b;
+      --txt: #eef3ff;
+      --muted: #9bacd0;
+      --ok: #29d178;
+      --warn: #f5b642;
+      --bad: #ff5d73;
+      --accent: #7c9bff;
+      --accent2: #58d0ff;
+      --line: #223157;
+    }
 
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #1a2850 0%, var(--bg) 52%);
+      color: var(--txt);
+      font-family: "Segoe UI", "Heebo", Arial, sans-serif;
+      min-height: 100vh;
+      padding: 14px;
+    }
+
+    .app {
+      max-width: 960px;
+      margin: 0 auto;
+      display: grid;
+      gap: 12px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--card) 0%, var(--card-alt) 100%);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--warn);
+      box-shadow: 0 0 8px var(--warn);
+    }
+
+    .dot.online {
+      background: var(--ok);
+      box-shadow: 0 0 8px var(--ok);
+    }
+
+    .dot.offline {
+      background: var(--bad);
+      box-shadow: 0 0 8px var(--bad);
+    }
+
+    .metrics {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .metric h3 {
+      margin: 0;
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .metric .value {
+      margin-top: 6px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .mini {
+      margin-top: 6px;
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+
+    .battery-bar {
+      margin-top: 8px;
+      width: 100%;
+      height: 8px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #1b2a4c;
+      border: 1px solid #2f477c;
+    }
+
+    .battery-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #ff6262 0%, #ffd95a 40%, #3ee089 100%);
+      transition: width .4s ease, background .4s ease;
+    }
+
+    .controls {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: #172547;
+      color: var(--txt);
+      border-radius: 12px;
+      padding: 11px 8px;
+      font-size: 0.93rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .1s ease, opacity .15s ease, background .15s ease;
+      min-height: 50px;
+    }
+
+    button:active { transform: scale(0.98); }
+
+    button.primary {
+      background: linear-gradient(180deg, var(--accent) 0%, #3d73dc 100%);
+      border-color: #4c7fe3;
+    }
+
+    button.warn {
+      background: linear-gradient(180deg, #ff7f90 0%, #dc4a62 100%);
+      border-color: #f36178;
+    }
+
+    button.alt {
+      background: linear-gradient(180deg, var(--accent2) 0%, #2799d7 100%);
+      border-color: #37abeb;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .toggles {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .toggle {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 9px;
+      text-align: center;
+      font-size: 0.82rem;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .toggle.active {
+      border-color: #4ce295;
+      color: #4ce295;
+      background: rgba(76, 226, 149, 0.08);
+    }
+
+    .footer {
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-align: center;
+      padding-bottom: 6px;
+    }
+
+    .api-config {
+      display: grid;
+      gap: 8px;
+    }
+
+    .api-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .api-input {
+      flex: 1;
+      min-width: 220px;
+      border: 1px solid var(--line);
+      background: #0f1a34;
+      color: var(--txt);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.9rem;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .api-btn {
+      min-height: 42px;
+      padding: 10px 12px;
+      font-size: 0.84rem;
+      border-radius: 10px;
+    }
+
+    .quick-steps {
+      margin: 0;
+      padding-inline-start: 18px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    @media (min-width: 760px) {
+      .app {
+        grid-template-columns: 1.1fr 1fr;
+      }
+
+      .wide {
+        grid-column: 1 / -1;
+      }
+    }
+  </style>
 </head>
 <body>
-  <main class="app" id="app">
+  <main class="app">
     <section class="card wide">
       <div class="header">
-        <h1 class="title">🚀 Roomba Pro Dashboard</h1>
+        <h1 class="title">🤖 Roomba Control Dashboard</h1>
         <div class="status-chip"><span class="dot" id="dot"></span><span id="conn">בודק חיבור...</span></div>
       </div>
       <p class="mini" id="lastUpdate">טרם התקבלו נתונים.</p>
@@ -82,4 +334,287 @@
     <section class="footer wide">Roomba Control Dashboard • עדכון אוטומטי כל שנייה</section>
   </main>
 
-    <script src="app.js"></script>
+  <script>
+    function normalizeApiBase(value) {
+      if (!value) return "";
+      return value.trim().replace(/\/+$/, "");
+    }
+
+    function resolveApiBase() {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get("apiBase") || params.get("api");
+      if (fromQuery) {
+        localStorage.setItem("roombaApiBase", fromQuery);
+        return normalizeApiBase(fromQuery);
+      }
+
+      const fromStorage = localStorage.getItem("roombaApiBase");
+      if (fromStorage) return normalizeApiBase(fromStorage);
+
+      const fromGlobal = window.ROBOT_API_BASE || window.API_BASE;
+      if (fromGlobal) return normalizeApiBase(fromGlobal);
+
+      return "";
+    }
+
+    const API_BASE = resolveApiBase();
+    const REFRESH_MS = 1000;
+
+    const chargingLabels = {
+      0: "Not Charging",
+      1: "Reconditioning",
+      2: "Full Charging",
+      3: "Trickle Charging",
+      4: "Waiting",
+      5: "Charging Fault"
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const ui = {
+      dot: document.getElementById("dot"),
+      conn: document.getElementById("conn"),
+      lastUpdate: document.getElementById("lastUpdate"),
+      batteryPercent: document.getElementById("batteryPercent"),
+      batteryMv: document.getElementById("batteryMv"),
+      batteryFill: document.getElementById("batteryFill"),
+      chargingState: document.getElementById("chargingState"),
+      chargingCode: document.getElementById("chargingCode"),
+      currentMa: document.getElementById("currentMa"),
+      buttons: document.getElementById("buttons"),
+      sensorGrid: document.getElementById("sensorGrid"),
+      commandStatus: document.getElementById("commandStatus"),
+      actionButtons: [...document.querySelectorAll("button[data-action]")],
+      apiBaseInput: document.getElementById("apiBaseInput"),
+      apiBaseDisplay: document.getElementById("apiBaseDisplay"),
+      saveApiBase: document.getElementById("saveApiBase"),
+      testApiBase: document.getElementById("testApiBase"),
+      clearApiBase: document.getElementById("clearApiBase")
+    };
+
+    if (!API_BASE && window.location.hostname.endsWith("github.io")) {
+      ui.commandStatus.textContent = "הגדר כתובת API דרך ?apiBase=https://<esp32-host>";
+    }
+
+    let cooldownUntil = 0;
+    let sensorsBusy = false;
+
+    function clearUI() {
+      ui.batteryPercent.textContent = "--";
+      ui.batteryMv.textContent = "--";
+      ui.currentMa.textContent = "--";
+      ui.chargingCode.textContent = "--";
+      ui.chargingState.textContent = "--";
+      ui.buttons.textContent = "--";
+      ui.batteryFill.style.width = "0%";
+      ui.batteryFill.style.background = "linear-gradient(90deg, #ff6262 0%, #ffd95a 40%, #3ee089 100%)";
+      ui.sensorGrid.innerHTML = '<div class="mini">אין נתוני חיישנים להצגה.</div>';
+    }
+
+    function estimateBatteryPercent(mv) {
+      // אומדן לליתיום 4S לרומבה: ~14.0V ריק עד ~16.8V מלא
+      const pct = ((mv - 14000) / (16800 - 14000)) * 100;
+      return Math.max(0, Math.min(100, Math.round(pct)));
+    }
+
+    function setOnlineState(state, text) {
+      ui.dot.classList.remove("online", "offline");
+      if (state === "online") ui.dot.classList.add("online");
+      if (state === "offline") ui.dot.classList.add("offline");
+      ui.conn.textContent = text;
+    }
+
+    function toDisplayValue(value) {
+      if (typeof value === "boolean") return value ? "ON" : "OFF";
+      if (Array.isArray(value)) return value.join(", ");
+      if (value && typeof value === "object") return JSON.stringify(value);
+      return value ?? "--";
+    }
+
+    function renderAllSensors(data) {
+      const keys = Object.keys(data || {}).sort();
+      if (!keys.length) {
+        ui.sensorGrid.innerHTML = '<div class="mini">לא התקבלו נתוני חיישנים.</div>';
+        return;
+      }
+      ui.sensorGrid.innerHTML = keys.map((key) => `
+        <div class="sensor-item">
+          <div class="sensor-name">${key}</div>
+          <div class="sensor-value">${toDisplayValue(data[key])}</div>
+        </div>
+      `).join("");
+    }
+
+    function applySensorData(data) {
+      const mv = Number(data.battery_mV ?? 0);
+      const pct = estimateBatteryPercent(mv);
+      const current = Number(data.current_mA ?? 0);
+      const code = Number(data.charging_state ?? -1);
+
+      ui.batteryPercent.textContent = pct;
+      ui.batteryMv.textContent = mv || "--";
+      ui.batteryFill.style.width = `${pct}%`;
+      if (pct < 25) {
+        ui.batteryFill.style.background = "#ff6262";
+      } else if (pct < 60) {
+        ui.batteryFill.style.background = "#ffd95a";
+      } else {
+        ui.batteryFill.style.background = "#3ee089";
+      }
+      ui.currentMa.textContent = Number.isFinite(current) ? current : "--";
+      ui.chargingCode.textContent = Number.isFinite(code) ? code : "--";
+      ui.chargingState.textContent = chargingLabels[code] || "Unknown";
+      ui.buttons.textContent = Number(data.buttons ?? 0);
+
+      renderAllSensors(data);
+
+      const now = new Date();
+      ui.lastUpdate.textContent = `עודכן: ${now.toLocaleTimeString("he-IL")}`;
+    }
+
+    async function fetchJson(path, options = {}) {
+      if (!API_BASE && isGithubPagesHost()) {
+        throw new Error("API base לא הוגדר");
+      }
+      const res = await fetch(`${API_BASE}${path}`, {
+        headers: { "Accept": "application/json" },
+        ...options
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const ct = res.headers.get("content-type") || "";
+      return ct.includes("application/json") ? res.json() : {};
+    }
+
+    async function refreshStatus() {
+      if (!API_BASE) {
+        setOnlineState("offline", "אין כתובת API");
+        return;
+      }
+      try {
+        await fetchJson("/api/status");
+        setOnlineState("online", "מחובר לרומבה");
+      } catch {
+        setOnlineState("offline", "אין תקשורת API");
+      }
+    }
+
+    async function refreshSensors() {
+      if (!API_BASE) {
+        ui.commandStatus.textContent = "אין כתובת API";
+        clearUI();
+        return;
+      }
+      if (sensorsBusy) return;
+      sensorsBusy = true;
+      ui.lastUpdate.textContent = "טוען נתונים...";
+      try {
+        const data = await fetchJson("/api/sensors");
+        applySensorData(data);
+      } catch (err) {
+        clearUI();
+        ui.lastUpdate.textContent = `שגיאת קריאה: ${err.message}`;
+      } finally {
+        sensorsBusy = false;
+      }
+    }
+
+    function setButtonsDisabled(disabled) {
+      ui.actionButtons.forEach(btn => { btn.disabled = disabled; });
+    }
+
+    async function sendAction(action) {
+      if (!API_BASE) {
+        ui.commandStatus.textContent = "אין כתובת API";
+        return;
+      }
+      const now = Date.now();
+      if (now < cooldownUntil) {
+        ui.commandStatus.textContent = "ממתין cooldown קצר...";
+        return;
+      }
+
+      setButtonsDisabled(true);
+      ui.commandStatus.textContent = `שולח ${action}...`;
+
+      try {
+        await fetchJson(`/api/${action}`, { method: "POST" });
+        ui.commandStatus.textContent = `✅ נשלחה פקודת ${action}`;
+      } catch (err) {
+        ui.commandStatus.textContent = `❌ פקודת ${action} נכשלה (${err.message})`;
+      } finally {
+        cooldownUntil = Date.now() + 300;
+        setTimeout(() => setButtonsDisabled(false), 300);
+      }
+    }
+
+    ui.actionButtons.forEach(btn => {
+      btn.addEventListener("click", () => sendAction(btn.dataset.action));
+    });
+
+    ui.saveApiBase.addEventListener("click", async () => {
+      const raw = ui.apiBaseInput.value;
+      const normalized = normalizeApiBase(raw);
+      if (!normalized) {
+        ui.commandStatus.textContent = "יש להזין כתובת API לפני שמירה.";
+        return;
+      }
+
+      if (!/^https?:\/\//i.test(normalized)) {
+        ui.commandStatus.textContent = "כתובת חייבת להתחיל ב-http:// או https://";
+        return;
+      }
+
+      setApiBase(normalized, true);
+      await testConnection();
+    });
+
+    ui.testApiBase.addEventListener("click", async () => {
+      if (!API_BASE) {
+        ui.commandStatus.textContent = "יש להזין כתובת API לפני בדיקת חיבור.";
+        return;
+      }
+      await testConnection();
+    });
+
+    ui.clearApiBase.addEventListener("click", () => {
+      setApiBase("", true);
+      ui.commandStatus.textContent = "כתובת API נוקתה.";
+      if (isGithubPagesHost()) {
+        setOnlineState("offline", "חסר יעד API");
+      }
+    });
+
+    // תמיכה מקלדת ל-CloudPhone
+    const keyOrder = ["clean", "spot", "safe", "stop"];
+    let keyFocus = 0;
+    function refreshKeyFocus() {
+      ui.actionButtons.forEach((b, i) => {
+        b.style.outline = i === keyFocus ? "2px solid #a8c7ff" : "none";
+      });
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") {
+        keyFocus = (keyFocus + 1) % keyOrder.length;
+        refreshKeyFocus();
+      } else if (e.key === "ArrowUp") {
+        keyFocus = (keyFocus - 1 + keyOrder.length) % keyOrder.length;
+        refreshKeyFocus();
+      } else if (e.key === "Enter") {
+        sendAction(keyOrder[keyFocus]);
+      }
+    });
+
+    async function bootstrap() {
+      refreshKeyFocus();
+      await refreshStatus();
+      await refreshSensors();
+      setInterval(refreshStatus, REFRESH_MS * 3);
+      setInterval(refreshSensors, REFRESH_MS);
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>
