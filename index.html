@@ -346,7 +346,10 @@
     function resolveApiBase() {
       const params = new URLSearchParams(window.location.search);
       const fromQuery = params.get("apiBase") || params.get("api");
-      if (fromQuery) return normalizeApiBase(fromQuery);
+      if (fromQuery) {
+        localStorage.setItem("roombaApiBase", fromQuery);
+        return normalizeApiBase(fromQuery);
+      }
 
       const fromStorage = localStorage.getItem("roombaApiBase");
       if (fromStorage) return normalizeApiBase(fromStorage);
@@ -357,7 +360,7 @@
       return "";
     }
 
-    let API_BASE = resolveApiBase();
+    const API_BASE = resolveApiBase();
     const REFRESH_MS = 1000;
 
     const chargingLabels = {
@@ -392,42 +395,8 @@
       clearApiBase: document.getElementById("clearApiBase")
     };
 
-    function isGithubPagesHost() {
-      return window.location.hostname.endsWith("github.io");
-    }
-
-    async function testConnection() {
-      ui.commandStatus.textContent = "בודק חיבור ל-API...";
-      await refreshStatus();
-      await refreshSensors();
-      if (ui.conn.textContent.includes("מחובר")) {
-        ui.commandStatus.textContent = "✅ החיבור תקין, אפשר לשלוח פקודות.";
-      }
-    }
-
-    function setApiBase(value, persist = true) {
-      API_BASE = normalizeApiBase(value);
-      if (persist) {
-        if (API_BASE) {
-          localStorage.setItem("roombaApiBase", API_BASE);
-        } else {
-          localStorage.removeItem("roombaApiBase");
-        }
-      }
-      ui.apiBaseInput.value = API_BASE;
-      ui.apiBaseDisplay.textContent = API_BASE || "לא הוגדרה";
-    }
-
-    setApiBase(API_BASE, false);
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("apiBase") || params.get("api")) {
-      localStorage.setItem("roombaApiBase", API_BASE);
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-
-    if (!API_BASE && isGithubPagesHost()) {
-      ui.commandStatus.textContent = "ברוך הבא 👋 כדי להתחיל: הזן כתובת ESP32, לחץ 'שמור כתובת', ואז 'בדוק חיבור'.";
+    if (!API_BASE && window.location.hostname.endsWith("github.io")) {
+      ui.commandStatus.textContent = "הגדר כתובת API דרך ?apiBase=https://<esp32-host>";
     }
 
     let cooldownUntil = 0;
