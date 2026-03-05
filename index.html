@@ -6,15 +6,15 @@
   <title>Roomba Pro Dashboard</title>
   <style>
     :root {
-      --bg: #0b1020;
-      --card: #121a30;
+      --bg: #060b16;
+      --card: #101a2d;
       --card-alt: #0f172b;
       --txt: #eef3ff;
       --muted: #9bacd0;
       --ok: #29d178;
       --warn: #f5b642;
       --bad: #ff5d73;
-      --accent: #66a3ff;
+      --accent: #7c9bff;
       --accent2: #58d0ff;
       --line: #223157;
     }
@@ -209,6 +209,73 @@
       padding-bottom: 6px;
     }
 
+    .api-config {
+      display: grid;
+      gap: 8px;
+    }
+
+    .api-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .api-input {
+      flex: 1;
+      min-width: 220px;
+      border: 1px solid var(--line);
+      background: #0f1a34;
+      color: var(--txt);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.9rem;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .api-btn {
+      min-height: 42px;
+      padding: 10px 12px;
+      font-size: 0.84rem;
+      border-radius: 10px;
+    }
+
+    .quick-steps {
+      margin: 0;
+      padding-inline-start: 18px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+
+
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .sensor-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .sensor-name {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+      word-break: break-all;
+    }
+
+    .sensor-value {
+      font-size: 0.98rem;
+      font-weight: 700;
+    }
+
     @media (min-width: 760px) {
       .app {
         grid-template-columns: 1.1fr 1fr;
@@ -257,6 +324,24 @@
       </div>
     </section>
 
+    <section class="card wide">
+      <h2 class="title">הגדרת חיבור API</h2>
+      <div class="api-config">
+        <ol class="quick-steps">
+          <li>הזן את כתובת ה-ESP32 (לדוגמה: <code>http://192.168.1.50</code>).</li>
+          <li>לחץ <b>"שמור כתובת"</b>.</li>
+          <li>לחץ <b>"בדוק חיבור"</b> — כשמחובר, למעלה יופיע "מחובר לרומבה".</li>
+        </ol>
+        <div class="api-row">
+          <input class="api-input" id="apiBaseInput" type="url" placeholder="http://192.168.1.50" inputmode="url" />
+          <button class="api-btn primary" id="saveApiBase" type="button">שמור כתובת</button>
+          <button class="api-btn alt" id="testApiBase" type="button">בדוק חיבור</button>
+          <button class="api-btn" id="clearApiBase" type="button">נקה</button>
+        </div>
+        <div class="mini">כתובת פעילה: <span id="apiBaseDisplay">--</span></div>
+      </div>
+    </section>
+
     <section class="card">
       <h2 class="title">בקרת הפעלה</h2>
       <div class="controls">
@@ -269,19 +354,35 @@
     </section>
 
     <section class="card wide">
-      <h2 class="title">חיישנים חיים</h2>
-      <div class="toggles">
-        <div class="toggle" id="bumperLeft">Bumper Left: OFF</div>
-        <div class="toggle" id="bumperRight">Bumper Right: OFF</div>
-        <div class="toggle" id="cliff">Cliff: OFF</div>
-      </div>
+      <h2 class="title">חיישנים חיים (כל החיישנים)</h2>
+      <div class="mini">הטבלה מציגה את כל המפתחות שמגיעים מ-<code>/api/sensors</code> בזמן אמת.</div>
+      <div class="sensor-grid" id="sensorGrid"></div>
     </section>
 
-    <section class="footer wide">Dashboard מותאם למובייל ול-CloudPhone • עדכון אוטומטי כל שנייה</section>
+    <section class="footer wide">Roomba Control Dashboard • עדכון אוטומטי כל שנייה</section>
   </main>
 
   <script>
-    const API_BASE = "";
+    function normalizeApiBase(value) {
+      if (!value) return "";
+      return value.trim().replace(/\/+$/, "");
+    }
+
+    function resolveApiBase() {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get("apiBase") || params.get("api");
+      if (fromQuery) return normalizeApiBase(fromQuery);
+
+      const fromStorage = localStorage.getItem("roombaApiBase");
+      if (fromStorage) return normalizeApiBase(fromStorage);
+
+      const fromGlobal = window.ROBOT_API_BASE || window.API_BASE;
+      if (fromGlobal) return normalizeApiBase(fromGlobal);
+
+      return "";
+    }
+
+    let API_BASE = resolveApiBase();
     const REFRESH_MS = 1000;
 
     const chargingLabels = {
@@ -304,12 +405,53 @@
       chargingCode: document.getElementById("chargingCode"),
       currentMa: document.getElementById("currentMa"),
       buttons: document.getElementById("buttons"),
-      bumperLeft: document.getElementById("bumperLeft"),
-      bumperRight: document.getElementById("bumperRight"),
-      cliff: document.getElementById("cliff"),
+      sensorGrid: document.getElementById("sensorGrid"),
       commandStatus: document.getElementById("commandStatus"),
-      actionButtons: [...document.querySelectorAll("button[data-action]")]
+      actionButtons: [...document.querySelectorAll("button[data-action]")],
+      apiBaseInput: document.getElementById("apiBaseInput"),
+      apiBaseDisplay: document.getElementById("apiBaseDisplay"),
+      saveApiBase: document.getElementById("saveApiBase"),
+      testApiBase: document.getElementById("testApiBase"),
+      clearApiBase: document.getElementById("clearApiBase")
     };
+
+    function isGithubPagesHost() {
+      return window.location.hostname.endsWith("github.io");
+    }
+
+    async function testConnection() {
+      ui.commandStatus.textContent = "בודק חיבור ל-API...";
+      await refreshStatus();
+      await refreshSensors();
+      if (ui.conn.textContent.includes("מחובר")) {
+        ui.commandStatus.textContent = "✅ החיבור תקין, אפשר לשלוח פקודות.";
+      }
+    }
+
+    function setApiBase(value, persist = true) {
+      API_BASE = normalizeApiBase(value);
+      if (persist) {
+        if (API_BASE) {
+          localStorage.setItem("roombaApiBase", API_BASE);
+        } else {
+          localStorage.removeItem("roombaApiBase");
+        }
+      }
+      ui.apiBaseInput.value = API_BASE;
+      ui.apiBaseDisplay.textContent = API_BASE || "לא הוגדרה";
+    }
+
+    setApiBase(API_BASE, false);
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("apiBase") || params.get("api")) {
+      localStorage.setItem("roombaApiBase", API_BASE);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    if (!API_BASE && isGithubPagesHost()) {
+      ui.commandStatus.textContent = "ברוך הבא 👋 כדי להתחיל: הזן כתובת ESP32, לחץ 'שמור כתובת', ואז 'בדוק חיבור'.";
+    }
 
     let cooldownUntil = 0;
 
@@ -326,9 +468,25 @@
       ui.conn.textContent = text;
     }
 
-    function setToggle(el, active, label) {
-      el.classList.toggle("active", !!active);
-      el.textContent = `${label}: ${active ? "ON" : "OFF"}`;
+    function toDisplayValue(value) {
+      if (typeof value === "boolean") return value ? "ON" : "OFF";
+      if (Array.isArray(value)) return value.join(", ");
+      if (value && typeof value === "object") return JSON.stringify(value);
+      return value ?? "--";
+    }
+
+    function renderAllSensors(data) {
+      const keys = Object.keys(data || {}).sort();
+      if (!keys.length) {
+        ui.sensorGrid.innerHTML = '<div class="mini">לא התקבלו נתוני חיישנים.</div>';
+        return;
+      }
+      ui.sensorGrid.innerHTML = keys.map((key) => `
+        <div class="sensor-item">
+          <div class="sensor-name">${key}</div>
+          <div class="sensor-value">${toDisplayValue(data[key])}</div>
+        </div>
+      `).join("");
     }
 
     function applySensorData(data) {
@@ -345,15 +503,16 @@
       ui.chargingState.textContent = chargingLabels[code] || "Unknown";
       ui.buttons.textContent = Number(data.buttons ?? 0);
 
-      setToggle(ui.bumperLeft, !!data.bumper_left, "Bumper Left");
-      setToggle(ui.bumperRight, !!data.bumper_right, "Bumper Right");
-      setToggle(ui.cliff, !!data.cliff, "Cliff");
+      renderAllSensors(data);
 
       const now = new Date();
       ui.lastUpdate.textContent = `עודכן: ${now.toLocaleTimeString("he-IL")}`;
     }
 
     async function fetchJson(path, options = {}) {
+      if (!API_BASE && isGithubPagesHost()) {
+        throw new Error("API base לא הוגדר");
+      }
       const res = await fetch(`${API_BASE}${path}`, {
         headers: { "Accept": "application/json" },
         ...options
@@ -412,7 +571,40 @@
       btn.addEventListener("click", () => sendAction(btn.dataset.action));
     });
 
-    // תמיכה מקלדת ל-CloudPhone
+    ui.saveApiBase.addEventListener("click", async () => {
+      const raw = ui.apiBaseInput.value;
+      const normalized = normalizeApiBase(raw);
+      if (!normalized) {
+        ui.commandStatus.textContent = "יש להזין כתובת API לפני שמירה.";
+        return;
+      }
+
+      if (!/^https?:\/\//i.test(normalized)) {
+        ui.commandStatus.textContent = "כתובת חייבת להתחיל ב-http:// או https://";
+        return;
+      }
+
+      setApiBase(normalized, true);
+      await testConnection();
+    });
+
+    ui.testApiBase.addEventListener("click", async () => {
+      if (!API_BASE) {
+        ui.commandStatus.textContent = "יש להזין כתובת API לפני בדיקת חיבור.";
+        return;
+      }
+      await testConnection();
+    });
+
+    ui.clearApiBase.addEventListener("click", () => {
+      setApiBase("", true);
+      ui.commandStatus.textContent = "כתובת API נוקתה.";
+      if (isGithubPagesHost()) {
+        setOnlineState("offline", "חסר יעד API");
+      }
+    });
+
+    // תמיכה בניווט מקלדת
     const keyOrder = ["clean", "spot", "safe", "stop"];
     let keyFocus = 0;
     function refreshKeyFocus() {
