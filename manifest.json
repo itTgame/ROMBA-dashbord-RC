@@ -2,7 +2,7 @@
   "id": "roomba-pro-dashboard",
   "name": "Roomba Pro Dashboard",
   "version": "2.0.0",
-  "description": "Responsive CloudPhone dashboard for controlling and monitoring Roomba via ESP32 REST API",
+  "description": "Responsive Roomba dashboard for controlling and monitoring via ESP32 REST API",
   "entry": "index.html",
   "type": "widget"
 }
