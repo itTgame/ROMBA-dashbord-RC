@@ -240,6 +240,14 @@
       border-radius: 10px;
     }
 
+    .quick-steps {
+      margin: 0;
+      padding-inline-start: 18px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
     @media (min-width: 760px) {
       .app {
         grid-template-columns: 1.1fr 1fr;
@@ -291,10 +299,15 @@
     <section class="card wide">
       <h2 class="title">הגדרת חיבור API</h2>
       <div class="api-config">
-        <div class="mini">הזן כתובת בסיס של ה-ESP32 (לדוגמה: <code>http://192.168.1.50</code>). אפשר גם לפתוח עם <code>?apiBase=...</code>.</div>
+        <ol class="quick-steps">
+          <li>הזן את כתובת ה-ESP32 (לדוגמה: <code>http://192.168.1.50</code>).</li>
+          <li>לחץ <b>"שמור כתובת"</b>.</li>
+          <li>לחץ <b>"בדוק חיבור"</b> — כשמחובר, למעלה יופיע "מחובר לרומבה".</li>
+        </ol>
         <div class="api-row">
           <input class="api-input" id="apiBaseInput" type="url" placeholder="http://192.168.1.50" inputmode="url" />
           <button class="api-btn primary" id="saveApiBase" type="button">שמור כתובת</button>
+          <button class="api-btn alt" id="testApiBase" type="button">בדוק חיבור</button>
           <button class="api-btn" id="clearApiBase" type="button">נקה</button>
         </div>
         <div class="mini">כתובת פעילה: <span id="apiBaseDisplay">--</span></div>
@@ -375,11 +388,21 @@
       apiBaseInput: document.getElementById("apiBaseInput"),
       apiBaseDisplay: document.getElementById("apiBaseDisplay"),
       saveApiBase: document.getElementById("saveApiBase"),
+      testApiBase: document.getElementById("testApiBase"),
       clearApiBase: document.getElementById("clearApiBase")
     };
 
     function isGithubPagesHost() {
       return window.location.hostname.endsWith("github.io");
+    }
+
+    async function testConnection() {
+      ui.commandStatus.textContent = "בודק חיבור ל-API...";
+      await refreshStatus();
+      await refreshSensors();
+      if (ui.conn.textContent.includes("מחובר")) {
+        ui.commandStatus.textContent = "✅ החיבור תקין, אפשר לשלוח פקודות.";
+      }
     }
 
     function setApiBase(value, persist = true) {
@@ -404,7 +427,7 @@
     }
 
     if (!API_BASE && isGithubPagesHost()) {
-      ui.commandStatus.textContent = "חסר יעד API. הזן כתובת ולחץ 'שמור כתובת'.";
+      ui.commandStatus.textContent = "ברוך הבא 👋 כדי להתחיל: הזן כתובת ESP32, לחץ 'שמור כתובת', ואז 'בדוק חיבור'.";
     }
 
     let cooldownUntil = 0;
@@ -525,9 +548,15 @@
       }
 
       setApiBase(normalized, true);
-      ui.commandStatus.textContent = "✅ כתובת API נשמרה. בודק חיבור...";
-      await refreshStatus();
-      await refreshSensors();
+      await testConnection();
+    });
+
+    ui.testApiBase.addEventListener("click", async () => {
+      if (!API_BASE) {
+        ui.commandStatus.textContent = "יש להזין כתובת API לפני בדיקת חיבור.";
+        return;
+      }
+      await testConnection();
     });
 
     ui.clearApiBase.addEventListener("click", () => {
