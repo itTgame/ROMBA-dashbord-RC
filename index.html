@@ -209,6 +209,45 @@
       padding-bottom: 6px;
     }
 
+    .api-config {
+      display: grid;
+      gap: 8px;
+    }
+
+    .api-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .api-input {
+      flex: 1;
+      min-width: 220px;
+      border: 1px solid var(--line);
+      background: #0f1a34;
+      color: var(--txt);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.9rem;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .api-btn {
+      min-height: 42px;
+      padding: 10px 12px;
+      font-size: 0.84rem;
+      border-radius: 10px;
+    }
+
+    .quick-steps {
+      margin: 0;
+      padding-inline-start: 18px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
     @media (min-width: 760px) {
       .app {
         grid-template-columns: 1.1fr 1fr;
@@ -254,6 +293,24 @@
           <div class="value" id="buttons">--</div>
           <div class="mini">ערך ביטמאפ</div>
         </div>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <h2 class="title">הגדרת חיבור API</h2>
+      <div class="api-config">
+        <ol class="quick-steps">
+          <li>הזן את כתובת ה-ESP32 (לדוגמה: <code>http://192.168.1.50</code>).</li>
+          <li>לחץ <b>"שמור כתובת"</b>.</li>
+          <li>לחץ <b>"בדוק חיבור"</b> — כשמחובר, למעלה יופיע "מחובר לרומבה".</li>
+        </ol>
+        <div class="api-row">
+          <input class="api-input" id="apiBaseInput" type="url" placeholder="http://192.168.1.50" inputmode="url" />
+          <button class="api-btn primary" id="saveApiBase" type="button">שמור כתובת</button>
+          <button class="api-btn alt" id="testApiBase" type="button">בדוק חיבור</button>
+          <button class="api-btn" id="clearApiBase" type="button">נקה</button>
+        </div>
+        <div class="mini">כתובת פעילה: <span id="apiBaseDisplay">--</span></div>
       </div>
     </section>
 
@@ -330,7 +387,12 @@
       bumperRight: document.getElementById("bumperRight"),
       cliff: document.getElementById("cliff"),
       commandStatus: document.getElementById("commandStatus"),
-      actionButtons: [...document.querySelectorAll("button[data-action]")]
+      actionButtons: [...document.querySelectorAll("button[data-action]")],
+      apiBaseInput: document.getElementById("apiBaseInput"),
+      apiBaseDisplay: document.getElementById("apiBaseDisplay"),
+      saveApiBase: document.getElementById("saveApiBase"),
+      testApiBase: document.getElementById("testApiBase"),
+      clearApiBase: document.getElementById("clearApiBase")
     };
 
     if (!API_BASE && window.location.hostname.endsWith("github.io")) {
@@ -380,6 +442,9 @@
     }
 
     async function fetchJson(path, options = {}) {
+      if (!API_BASE && isGithubPagesHost()) {
+        throw new Error("API base לא הוגדר");
+      }
       const res = await fetch(`${API_BASE}${path}`, {
         headers: { "Accept": "application/json" },
         ...options
@@ -436,6 +501,39 @@
 
     ui.actionButtons.forEach(btn => {
       btn.addEventListener("click", () => sendAction(btn.dataset.action));
+    });
+
+    ui.saveApiBase.addEventListener("click", async () => {
+      const raw = ui.apiBaseInput.value;
+      const normalized = normalizeApiBase(raw);
+      if (!normalized) {
+        ui.commandStatus.textContent = "יש להזין כתובת API לפני שמירה.";
+        return;
+      }
+
+      if (!/^https?:\/\//i.test(normalized)) {
+        ui.commandStatus.textContent = "כתובת חייבת להתחיל ב-http:// או https://";
+        return;
+      }
+
+      setApiBase(normalized, true);
+      await testConnection();
+    });
+
+    ui.testApiBase.addEventListener("click", async () => {
+      if (!API_BASE) {
+        ui.commandStatus.textContent = "יש להזין כתובת API לפני בדיקת חיבור.";
+        return;
+      }
+      await testConnection();
+    });
+
+    ui.clearApiBase.addEventListener("click", () => {
+      setApiBase("", true);
+      ui.commandStatus.textContent = "כתובת API נוקתה.";
+      if (isGithubPagesHost()) {
+        setOnlineState("offline", "חסר יעד API");
+      }
     });
 
     // תמיכה מקלדת ל-CloudPhone
