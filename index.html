@@ -137,7 +137,7 @@
       height: 100%;
       border-radius: 8px;
       background: linear-gradient(90deg, #ff6262 0%, #ffd95a 40%, #3ee089 100%);
-      transition: width 0.25s ease;
+      transition: width .4s ease, background .4s ease;
     }
 
     .controls {
@@ -193,7 +193,7 @@
       padding: 9px;
       text-align: center;
       font-size: 0.82rem;
-      background: rgba(255,255,255,0.02);
+      background: rgba(255,255,255,0.03);
     }
 
     .toggle.active {
@@ -369,6 +369,7 @@
       5: "Charging Fault"
     };
 
+    const $ = (id) => document.getElementById(id);
     const ui = {
       dot: document.getElementById("dot"),
       conn: document.getElementById("conn"),
@@ -395,6 +396,19 @@
     }
 
     let cooldownUntil = 0;
+    let sensorsBusy = false;
+
+    function clearUI() {
+      ui.batteryPercent.textContent = "--";
+      ui.batteryMv.textContent = "--";
+      ui.currentMa.textContent = "--";
+      ui.chargingCode.textContent = "--";
+      ui.chargingState.textContent = "--";
+      ui.buttons.textContent = "--";
+      ui.batteryFill.style.width = "0%";
+      ui.batteryFill.style.background = "linear-gradient(90deg, #ff6262 0%, #ffd95a 40%, #3ee089 100%)";
+      ui.sensorGrid.innerHTML = '<div class="mini">אין נתוני חיישנים להצגה.</div>';
+    }
 
     function estimateBatteryPercent(mv) {
       // אומדן לליתיום 4S לרומבה: ~14.0V ריק עד ~16.8V מלא
@@ -439,6 +453,13 @@
       ui.batteryPercent.textContent = pct;
       ui.batteryMv.textContent = mv || "--";
       ui.batteryFill.style.width = `${pct}%`;
+      if (pct < 25) {
+        ui.batteryFill.style.background = "#ff6262";
+      } else if (pct < 60) {
+        ui.batteryFill.style.background = "#ffd95a";
+      } else {
+        ui.batteryFill.style.background = "#3ee089";
+      }
       ui.currentMa.textContent = Number.isFinite(current) ? current : "--";
       ui.chargingCode.textContent = Number.isFinite(code) ? code : "--";
       ui.chargingState.textContent = chargingLabels[code] || "Unknown";
@@ -466,6 +487,10 @@
     }
 
     async function refreshStatus() {
+      if (!API_BASE) {
+        setOnlineState("offline", "אין כתובת API");
+        return;
+      }
       try {
         await fetchJson("/api/status");
         setOnlineState("online", "מחובר לרומבה");
@@ -475,11 +500,22 @@
     }
 
     async function refreshSensors() {
+      if (!API_BASE) {
+        ui.commandStatus.textContent = "אין כתובת API";
+        clearUI();
+        return;
+      }
+      if (sensorsBusy) return;
+      sensorsBusy = true;
+      ui.lastUpdate.textContent = "טוען נתונים...";
       try {
         const data = await fetchJson("/api/sensors");
         applySensorData(data);
       } catch (err) {
+        clearUI();
         ui.lastUpdate.textContent = `שגיאת קריאה: ${err.message}`;
+      } finally {
+        sensorsBusy = false;
       }
     }
 
@@ -488,6 +524,10 @@
     }
 
     async function sendAction(action) {
+      if (!API_BASE) {
+        ui.commandStatus.textContent = "אין כתובת API";
+        return;
+      }
       const now = Date.now();
       if (now < cooldownUntil) {
         ui.commandStatus.textContent = "ממתין cooldown קצר...";
