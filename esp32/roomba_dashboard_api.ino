@@ -1,52 +1,20 @@
-/*
-  ============================================================
-  ESP32 + Roomba (SCI) + REST API for Roomba Pro Dashboard
-  ============================================================
-  סקיצה זו תואמת אחד-לאחד ל-frontend (app.js):
-  - GET  /api/status
-  - GET  /api/sensors
-  - POST /api/clean
-  - POST /api/spot
-  - POST /api/safe
-  - POST /api/stop
-
-  מטרת הסקיצה:
-  1) להתחבר ל-WiFi
-  2) לייצר API ל-Web Dashboard
-  3) לשלוח פקודות SCI בסיסיות לרומבה דרך UART1
-
-  הערות חשובות:
-  - זהו בסיס יציב לשילוב. את קריאת החיישנים האמיתית מה-Roomba אפשר להרחיב בהמשך.
-  - כרגע חלק מערכי החיישנים מדומים (fake) כדי לאפשר בדיקה מלאה מול הדשבורד.
-*/
-
 #include <WiFi.h>
 #include <WebServer.h>
 
-// -------------------- Pin Mapping --------------------
 #define ROOMBA_RX 16
 #define ROOMBA_TX 17
 
-// -------------------- WiFi Credentials --------------------
-// החלף לערכים שלך לפני העלאה
+// עדכן לפי הרשת שלך
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
-
-// -------------------- Roomba SCI Opcodes --------------------
-const uint8_t ROOMBA_START = 128;
-const uint8_t ROOMBA_SAFE  = 131;
-const uint8_t ROOMBA_SPOT  = 134;
-const uint8_t ROOMBA_CLEAN = 135;
-const uint8_t ROOMBA_STOP  = 173;
 
 HardwareSerial RoombaSerial(1);
 WebServer server(80);
 
-// -------------------- Runtime State --------------------
+// מצב בסיסי להצגה בדשבורד
 uint32_t lastCmdAt = 0;
 const char* lastCmd = "none";
 
-// ערכים לדמו (ניתנים להחלפה בקריאה אמיתית מחיישנים)
 int fakeBatteryMv = 15840;
 int fakeCurrentMa = -420;
 int fakeChargingState = 2;
@@ -55,16 +23,16 @@ bool fakeBumperLeft = false;
 bool fakeBumperRight = false;
 bool fakeCliff = false;
 
-// -------------------- Utilities --------------------
+void sendRoombaCmd(uint8_t opcode, const char* label) {
+  RoombaSerial.write(opcode);
+  lastCmdAt = millis();
+  lastCmd = label;
+}
+
 void handleCors() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.sendHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
-}
-
-void sendJson(int code, const String& payload) {
-  handleCors();
-  server.send(code, "application/json", payload);
 }
 
 void handleOptions() {
@@ -72,31 +40,25 @@ void handleOptions() {
   server.send(204);
 }
 
-void sendRoombaCmd(uint8_t opcode, const char* label) {
-  RoombaSerial.write(opcode);
-  lastCmdAt = millis();
-  lastCmd = label;
-}
-
-// -------------------- API Handlers --------------------
 void handleStatus() {
+  handleCors();
   String body = "{";
   body += "\"ok\":true,";
   body += "\"mode\":\"safe\",";
   body += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
   body += "\"last_command\":\"" + String(lastCmd) + "\",";
-  body += "\"last_command_ms\":" + String(lastCmdAt) + ",";
   body += "\"uptime_ms\":" + String(millis());
   body += "}";
-  sendJson(200, body);
+  server.send(200, "application/json", body);
 }
 
 void handleSensors() {
-  // דינמיות פשוטה לדמו: מחליף bumper_left כל כמה שניות
+  // דוגמה דינמית בסיסית; אפשר להחליף בקריאה אמיתית מחיישני רומבה
   if (millis() % 5000 < 50) {
     fakeBumperLeft = !fakeBumperLeft;
   }
 
+  handleCors();
   String body = "{";
   body += "\"battery_mV\":" + String(fakeBatteryMv) + ",";
   body += "\"charging_state\":" + String(fakeChargingState) + ",";
@@ -107,48 +69,45 @@ void handleSensors() {
   body += "\"cliff\":" + String(fakeCliff ? "true" : "false") + ",";
   body += "\"last_command\":\"" + String(lastCmd) + "\"";
   body += "}";
-  sendJson(200, body);
+  server.send(200, "application/json", body);
 }
 
 void handleClean() {
-  sendRoombaCmd(ROOMBA_CLEAN, "clean");
-  sendJson(200, "{\"ok\":true,\"action\":\"clean\"}");
+  sendRoombaCmd(135, "clean");
+  handleCors();
+  server.send(200, "application/json", "{\"ok\":true,\"action\":\"clean\"}");
 }
 
 void handleSpot() {
-  sendRoombaCmd(ROOMBA_SPOT, "spot");
-  sendJson(200, "{\"ok\":true,\"action\":\"spot\"}");
+  sendRoombaCmd(134, "spot");
+  handleCors();
+  server.send(200, "application/json", "{\"ok\":true,\"action\":\"spot\"}");
 }
 
 void handleSafe() {
-  sendRoombaCmd(ROOMBA_SAFE, "safe");
-  sendJson(200, "{\"ok\":true,\"action\":\"safe\"}");
+  sendRoombaCmd(131, "safe");
+  handleCors();
+  server.send(200, "application/json", "{\"ok\":true,\"action\":\"safe\"}");
 }
 
 void handleStop() {
-  sendRoombaCmd(ROOMBA_STOP, "stop");
-  sendJson(200, "{\"ok\":true,\"action\":\"stop\"}");
+  sendRoombaCmd(173, "stop");
+  handleCors();
+  server.send(200, "application/json", "{\"ok\":true,\"action\":\"stop\"}");
 }
 
-void handleNotFound() {
-  sendJson(404, "{\"ok\":false,\"error\":\"not_found\"}");
-}
-
-// -------------------- Setup --------------------
 void setup() {
   Serial.begin(115200);
 
-  // אתחול UART לרומבה
   RoombaSerial.begin(115200, SERIAL_8N1, ROOMBA_RX, ROOMBA_TX);
-  delay(2000); // נותן זמן ל-ESP לעלות יציב
+  delay(2000);
 
-  // אתחול Roomba למצב START + SAFE (לא מתחיל ניקוי אוטומטית)
-  RoombaSerial.write(ROOMBA_START);
+  // אתחול Roomba
+  RoombaSerial.write(128);   // START
   delay(100);
-  RoombaSerial.write(ROOMBA_SAFE);
+  RoombaSerial.write(131);   // SAFE MODE
   delay(100);
 
-  // התחברות ל-WiFi
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.print("Connecting WiFi");
@@ -160,15 +119,16 @@ void setup() {
   Serial.print("WiFi connected, IP: ");
   Serial.println(WiFi.localIP());
 
-  // API routes שהדשבורד מצפה להן
+  // API routes שדשבורד מצפה להם
   server.on("/api/status", HTTP_GET, handleStatus);
   server.on("/api/sensors", HTTP_GET, handleSensors);
+
   server.on("/api/clean", HTTP_POST, handleClean);
   server.on("/api/spot", HTTP_POST, handleSpot);
   server.on("/api/safe", HTTP_POST, handleSafe);
   server.on("/api/stop", HTTP_POST, handleStop);
 
-  // תמיכה ב-CORS Preflight
+  // CORS preflight
   server.on("/api/status", HTTP_OPTIONS, handleOptions);
   server.on("/api/sensors", HTTP_OPTIONS, handleOptions);
   server.on("/api/clean", HTTP_OPTIONS, handleOptions);
@@ -176,14 +136,10 @@ void setup() {
   server.on("/api/safe", HTTP_OPTIONS, handleOptions);
   server.on("/api/stop", HTTP_OPTIONS, handleOptions);
 
-  server.onNotFound(handleNotFound);
-
   server.begin();
   Serial.println("HTTP API ready");
 }
 
-// -------------------- Main Loop --------------------
 void loop() {
-  // טיפול בבקשות HTTP נכנסות
   server.handleClient();
 }
