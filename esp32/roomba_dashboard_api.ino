@@ -20,9 +20,6 @@ uint32_t lastCmdAt = 0;
 const char* lastCmd = "none";
 bool roombaReady = false;
 
-// הצהרת פרוטוטייפ מפורשת כדי למנוע כשלים בהפקת פרוטוטייפ אוטומטית בסביבות Arduino מסוימות.
-void handleNotFound();
-
 struct SensorSnapshot {
   bool ok = false;
   uint8_t chargingState = 0;
@@ -46,11 +43,6 @@ void handleCors() {
 void handleOptions() {
   handleCors();
   server.send(204);
-}
-
-void handleNotFound() {
-  handleCors();
-  server.send(404, "application/json", "{\"ok\":false,\"error\":\"not_found\"}");
 }
 
 void writeCmd(uint8_t opcode) {
