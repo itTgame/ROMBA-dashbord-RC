@@ -1,17 +1,22 @@
 /*
-  roomba_dashboard_api.ino
-  גרסה מתוקנת ומשופרת - כולל:
-  - handleNotFound
-  - sampleSensorsIfDue (cache חיישנים)
-  - ensureWifi(bool) עם reconnect
-  - queryPacketWithRetries + שידרוג queryU8/queryU16/queryI16
-  - בדיקת API_KEY אופציונלית
-  - CORS handling
-  - שימוש ב-cachedSensors ב-handleSensors (עם גיבוי synchronous)
+  roomba_dashboard_api_fixed.ino
+  גרסה מתוקנת ומשופרת לאחר בדיקות:
+  - תיקון handleNotFound
+  - sampleSensorsIfDue (cache) + שימוש ב-cache ב-handleSensors
+  - queryPacketWithRetries עם timeout ארוך יותר וניסיונות נוספים
+  - ensureWifi(bool) עם forced reconnect אופציונלי
+  - API key אופציונלי (Bearer / ?key=)
+  - CORS + OPTIONS
+  - הגברת timeouts והאטת polling (SENSOR_INTERVAL = 5000ms)
+  - הדפסות Serial נרחבות לדיבאגינג
+  לפני העלאה: עדכן WIFI_SSID / WIFI_PASS
 */
 
 #include <WiFi.h>
 #include <WebServer.h>
+// אופציונלי: אם תרצה OTA / mDNS - הסר את ההערה והתקן את הספריות
+// #include <ArduinoOTA.h>
+// #include <ESPmDNS.h>
 
 #define ROOMBA_RX 16
 #define ROOMBA_TX 17
@@ -21,8 +26,9 @@ const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 
 // מהירות תקשורת סטנדרטית לממשק הפקודות של רומבה.
+// NOTE: חלק מהרומבות משתמשות בקצב 57600. אם לא עובד, נסה להחליף ל-57600.
 const uint32_t ROOMBA_BAUD = 115200;
-const uint16_t ROOMBA_READ_TIMEOUT_MS = 120;
+uint16_t ROOMBA_READ_TIMEOUT_MS = 400; // מוגדל ל־400ms לקריאות חיישנים
 
 HardwareSerial RoombaSerial(1);
 WebServer server(80);
@@ -47,7 +53,15 @@ struct SensorSnapshot {
   bool cliffRight = false;
 };
 
-// --- CORS / JSON עזר ---
+// --- גלובל cache וחלוקת זמני דגימה ---
+SensorSnapshot cachedSensors;
+unsigned long lastSensorRead = 0;
+const unsigned long SENSOR_INTERVAL = 5000UL; // דגימה כל 5 שניות (לא לעייף את Roomba)
+
+// --- API key אופציונלי (אם ריק - כבוי) ---
+const char* API_KEY = ""; // הגדר מחרוזת חזקה אם תרצה לאבטח את ה-API
+
+// --- עזרים: CORS / JSON ---
 void handleCors() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.sendHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -88,39 +102,41 @@ bool readExact(uint8_t* buffer, size_t len, uint16_t timeoutMs) {
   return i == len;
 }
 
-// --- request packet רגיל (החלף בגירסה עם retries) ---
-// פונקציה עם retries שנשלפת במקום הפונקציה הישנה
-bool queryPacketWithRetries(uint8_t packetId, uint8_t* out, size_t len, int maxTries = 3, uint16_t timeoutMs = ROOMBA_READ_TIMEOUT_MS) {
+// --- request packet עם retries ו-timeout ארוך יותר ---
+bool queryPacketWithRetries(uint8_t packetId, uint8_t* out, size_t len, int maxTries = 5, uint16_t timeoutMs = 400) {
   for (int attempt = 0; attempt < maxTries; ++attempt) {
     // נקה buffer קודם
     while (RoombaSerial.available()) RoombaSerial.read();
 
-    RoombaSerial.write(142);        // OP: QUERY LIST
-    RoombaSerial.write(packetId);   // packet id
+    // שלח בקשת packet
+    RoombaSerial.write(142);
+    RoombaSerial.write(packetId);
     RoombaSerial.flush();
-    delay(8);
+
+    // תן זמן תגובה לרומבה
+    delay(30);
 
     if (readExact(out, len, timeoutMs)) {
       return true;
     }
 
-    // קח נשימה קצרה לפני ניסיון חוזר
-    delay(12);
+    // אם נכשל - המתן קצר לפני ניסיון חוזר
+    delay(40);
   }
   return false;
 }
 
-// שינוי queryU8/queryU16/queryI16 להשתמש ב-retries
+// --- queryU8/queryU16/queryI16 שמשתמשים ב-retries ---
 bool queryU8(uint8_t packetId, uint8_t& value) {
   uint8_t b[1] = {0};
-  if (!queryPacketWithRetries(packetId, b, 1, 3)) return false;
+  if (!queryPacketWithRetries(packetId, b, 1, 5, ROOMBA_READ_TIMEOUT_MS)) return false;
   value = b[0];
   return true;
 }
 
 bool queryU16(uint8_t packetId, uint16_t& value) {
   uint8_t b[2] = {0, 0};
-  if (!queryPacketWithRetries(packetId, b, 2, 3)) return false;
+  if (!queryPacketWithRetries(packetId, b, 2, 5, ROOMBA_READ_TIMEOUT_MS)) return false;
   value = (static_cast<uint16_t>(b[0]) << 8) | b[1];
   return true;
 }
@@ -132,7 +148,7 @@ bool queryI16(uint8_t packetId, int16_t& value) {
   return true;
 }
 
-// --- קריאת חיישנים מהרומבה (synchronous, עדיין נחוץ כגיבוי) ---
+// --- קריאת חיישנים מהרומבה (synchronous/gibui) ---
 bool readRoombaSensors(SensorSnapshot& s) {
   uint8_t bumps = 0;
 
@@ -166,21 +182,16 @@ bool readRoombaSensors(SensorSnapshot& s) {
 void ensureRoombaReady() {
   if (roombaReady) return;
 
-  writeCmd(128);  // כניסה למצב התחלתי
-  delay(100);
-  writeCmd(131);  // מצב SAFE
-  delay(100);
+  writeCmd(128);  // START
+  delay(120);
+  writeCmd(131);  // SAFE
+  delay(120);
   roombaReady = true;
   lastCmd = "safe";
   lastCmdAt = millis();
 }
 
-// --- cache חיישנים גלובלי ובקרת דגימה ---
-SensorSnapshot cachedSensors;
-unsigned long lastSensorRead = 0;
-const unsigned long SENSOR_INTERVAL = 2000; // דגימה כל 2 שניות (ניתן לשנות)
-
-// דגימת חיישנים ברקע - תשמר ב-cachedSensors
+// --- דגימת חיישנים ברקע (cache) ---
 void sampleSensorsIfDue() {
   unsigned long now = millis();
   if (now - lastSensorRead < SENSOR_INTERVAL) return;
@@ -190,18 +201,15 @@ void sampleSensorsIfDue() {
   if (readRoombaSensors(s)) {
     cachedSensors = s;
     cachedSensors.ok = true;
-    // אופציונלי: הדפס ל-Serial לפריטור
-    // Serial.println("sampleSensorsIfDue: snapshot updated");
+    Serial.println("sampleSensorsIfDue: snapshot updated");
   } else {
-    // שמור את הקודם; סמן שלא עדכנו (ok=false) אם רצית
+    // שמור את הקודם אך סמן בעיית קריאה
     cachedSensors.ok = false;
     Serial.println("Warning: sampleSensorsIfDue() failed to read sensors");
   }
 }
 
-// --- API key אופציונלי --- (אם ריק, הכניסה פתוחה)
-const char* API_KEY = ""; // הגדר מחרוזת כדי להפעיל אימות
-
+// --- API key בדיקה ---
 bool checkApiKey() {
   if (API_KEY == nullptr || API_KEY[0] == '\0') return true; // כבוי כברירת מחדל
 
@@ -214,12 +222,10 @@ bool checkApiKey() {
       if (token.equals(API_KEY)) return true;
     }
   }
-
-  // גם אפשר לבדוק פרמטר ?key=<token>
+  // גם בדיקה על ?key=
   if (server.hasArg("key")) {
     if (server.arg("key") == String(API_KEY)) return true;
   }
-
   return false;
 }
 
@@ -233,7 +239,6 @@ void handleNotFound() {
   body += "\"error\":\"not_found\",";
   body += "\"path\":\"" + path + "\"";
   body += "}";
-
   sendJson(404, body);
 }
 
@@ -267,8 +272,8 @@ void ensureWifi(bool forceReconnect) {
     if (WiFi.status() == WL_CONNECTED) {
       Serial.print("WiFi connected, IP: ");
       Serial.println(WiFi.localIP());
-      // הגדר hostname לשם נח למציאת ההתקן
       WiFi.setHostname("roomba-dashboard");
+      // אופציונלי: MDNS.begin("roomba") אם השתמשת ב-ESPmDNS
     } else {
       Serial.println("WiFi connect failed (will retry later).");
     }
@@ -365,11 +370,15 @@ void handleStop() {
 // --- setup & loop ---
 void setup() {
   Serial.begin(115200);
+
+  // אתחל סריאל לרומבה - סדרה #1, עם RX/TX מותאמים
   RoombaSerial.begin(ROOMBA_BAUD, SERIAL_8N1, ROOMBA_RX, ROOMBA_TX);
+  RoombaSerial.setTimeout(500); // timeout לקריאות Serial API
 
   delay(2000);
   ensureRoombaReady();
 
+  // התחבר ל-WiFi
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.print("מתחבר לרשת WiFi");
@@ -383,6 +392,7 @@ void setup() {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.print("התחבר. כתובת IP: ");
     Serial.println(WiFi.localIP());
+    WiFi.setHostname("roomba-dashboard");
   } else {
     Serial.println("לא הצליח להתחבר במהלך setup (עדיין אפשר לנסות בשלב מאוחר יותר).");
   }
@@ -408,7 +418,7 @@ void setup() {
   server.begin();
   Serial.println("שרת HTTP מוכן.");
 
-  // אתחל cache בתחילה (ניסיון קריאה אחת כדי למלא אם אפשר)
+  // אתחל cache בתחילה (ניסיון קריאה ראשוני)
   sampleSensorsIfDue();
 }
 
@@ -416,4 +426,10 @@ void loop() {
   server.handleClient();
   sampleSensorsIfDue();
   ensureWifi(false);
+
+  // אופציונלי: אם תרצה OTA - קרא ArduinoOTA.handle() כאן
+  // ArduinoOTA.handle();
+
+  // הקטין שימוש ב-CPU בין לולאות
+  delay(10);
 }
