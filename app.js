@@ -6,13 +6,14 @@ let cooldownUntil = 0;
 let sensorsBusy = false;
 let statusBusy = false;
 
+// מיפוי קודי טעינה שמגיעים מהרומבה לטקסט ידידותי בעברית.
 const chargingLabels = {
-  0: "Not Charging",
-  1: "Reconditioning",
-  2: "Full Charging",
-  3: "Trickle Charging",
-  4: "Waiting",
-  5: "Charging Fault"
+  0: "לא בטעינה",
+  1: "שיקום סוללה",
+  2: "טעינה מלאה",
+  3: "טעינת תחזוקה",
+  4: "ממתין",
+  5: "תקלה בטעינה"
 };
 
 const ui = {
@@ -41,12 +42,15 @@ function normalizeApiBase(value) {
   return value.trim().replace(/\/+$/, "");
 }
 
+// קבלת כתובת API לפי קדימות: פרמטר בכתובת > localStorage.
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
   const fromQuery = params.get("apiBase") || params.get("api");
   if (fromQuery) return normalizeApiBase(fromQuery);
+
   const fromStorage = localStorage.getItem("roombaApiBase");
   if (fromStorage) return normalizeApiBase(fromStorage);
+
   return "";
 }
 
@@ -90,21 +94,23 @@ function batteryColor(pct) {
   return "#3ee089";
 }
 
+// אומדן אחוז סוללה לרומבה על בסיס סוללת ליתיום 4S.
 function estimateBatteryPercent(mv) {
   const pct = ((mv - 14000) / (16800 - 14000)) * 100;
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
 function toDisplayValue(value) {
-  if (typeof value === "boolean") return value ? "ON" : "OFF";
+  if (typeof value === "boolean") return value ? "פועל" : "כבוי";
   if (Array.isArray(value)) return value.join(", ");
   if (value && typeof value === "object") {
     try {
       return JSON.stringify(value);
     } catch {
-      return "[object]";
+      return "[אובייקט]";
     }
   }
+
   return value ?? "--";
 }
 
@@ -114,6 +120,7 @@ function renderAllSensors(data) {
     ui.sensorGrid.innerHTML = '<div class="mini">לא התקבלו נתוני חיישנים.</div>';
     return;
   }
+
   ui.sensorGrid.innerHTML = keys.map((key) => `
     <div class="sensor-item">
       <div class="sensor-name">${key}</div>
@@ -134,7 +141,7 @@ function applySensorData(data) {
   ui.batteryFill.style.background = batteryColor(pct);
   ui.currentMa.textContent = Number.isFinite(current) ? current : "--";
   ui.chargingCode.textContent = Number.isFinite(code) ? code : "--";
-  ui.chargingState.textContent = chargingLabels[code] || "Unknown";
+  ui.chargingState.textContent = chargingLabels[code] || "לא ידוע";
   ui.buttons.textContent = Number(data.buttons ?? 0);
 
   renderAllSensors(data);
@@ -146,7 +153,9 @@ async function fetchJson(path, options = {}) {
     headers: { Accept: "application/json" },
     ...options
   });
+
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
   const ct = res.headers.get("content-type") || "";
   return ct.includes("application/json") ? res.json() : {};
 }
@@ -192,7 +201,9 @@ async function refreshSensors() {
 }
 
 function setButtonsDisabled(disabled) {
-  ui.actionButtons.forEach((btn) => { btn.disabled = disabled; });
+  ui.actionButtons.forEach((btn) => {
+    btn.disabled = disabled;
+  });
 }
 
 async function sendAction(action) {
@@ -203,7 +214,7 @@ async function sendAction(action) {
 
   const now = Date.now();
   if (now < cooldownUntil) {
-    ui.commandStatus.textContent = "ממתין cooldown קצר...";
+    ui.commandStatus.textContent = "ממתין זמן צינון קצר...";
     return;
   }
 
@@ -225,6 +236,7 @@ async function testConnection() {
   ui.commandStatus.textContent = "בודק חיבור ל-API...";
   await refreshStatus();
   await refreshSensors();
+
   if (ui.conn.textContent.includes("מחובר")) {
     ui.commandStatus.textContent = "✅ החיבור תקין, אפשר לשלוח פקודות.";
   }
@@ -232,6 +244,7 @@ async function testConnection() {
 
 function bootstrap() {
   setApiBase(resolveApiBase(), false);
+
   const params = new URLSearchParams(window.location.search);
   if (params.get("apiBase") || params.get("api")) {
     localStorage.setItem("roombaApiBase", API_BASE);
@@ -252,10 +265,12 @@ function bootstrap() {
       ui.commandStatus.textContent = "יש להזין כתובת API לפני שמירה.";
       return;
     }
+
     if (!/^https?:\/\//i.test(normalized)) {
       ui.commandStatus.textContent = "כתובת חייבת להתחיל ב-http:// או https://";
       return;
     }
+
     setApiBase(normalized, true);
     await testConnection();
   });
@@ -269,6 +284,7 @@ function bootstrap() {
     ui.commandStatus.textContent = "כתובת API נוקתה.";
   });
 
+  // ניווט מקלדת נוח לשימוש במסכים ללא עכבר.
   const keyOrder = ["clean", "spot", "safe", "stop"];
   let keyFocus = 0;
   const refreshKeyFocus = () => {
@@ -276,6 +292,7 @@ function bootstrap() {
       b.style.outline = i === keyFocus ? "2px solid #a8c7ff" : "none";
     });
   };
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown") {
       keyFocus = (keyFocus + 1) % keyOrder.length;

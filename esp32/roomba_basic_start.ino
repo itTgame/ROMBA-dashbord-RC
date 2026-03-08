@@ -6,15 +6,15 @@ HardwareSerial RoombaSerial(1);
 void setup() {
   RoombaSerial.begin(115200, SERIAL_8N1, ROOMBA_RX, ROOMBA_TX);
 
-  delay(2000);        // נותן זמן ל-ESP לעלות
+  delay(2000);  // מאפשר ל-ESP32 לסיים אתחול לפני תקשורת עם הרובוט.
 
-  RoombaSerial.write(128);   // START
+  RoombaSerial.write(128);  // פקודת התחלה לממשק הפקודות של הרומבה.
   delay(100);
 
-  RoombaSerial.write(131);   // SAFE MODE
+  RoombaSerial.write(131);  // מעבר למצב בטוח להפעלת פקודות תנועה/ניקוי.
   delay(100);
 
-  RoombaSerial.write(135);   // CLEAN
+  RoombaSerial.write(135);  // התחלת ניקוי מלא.
 }
 
 void loop() {

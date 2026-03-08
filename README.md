@@ -48,3 +48,15 @@
    `https://<user>.github.io/<repo>/?apiBase=http://192.168.1.50`
    (נתמך גם alias של `?api=...`).
 8. הכנס את כתובת ה-Pages ב-CloudPhone Console.
+
+## הנחיות נוספות בעברית (ESP32 + רומבה)
+1. פתח את `esp32/roomba_dashboard_api.ino` ועדכן `WIFI_SSID` ו-`WIFI_PASS` לערכים האמיתיים שלך.
+2. ודא שחיבור UART בין ESP32 לרומבה נכון: `RX=GPIO16`, `TX=GPIO17` (בהתאם לקוד).
+3. העלה את הסקץ' ל-ESP32 דרך Arduino IDE או PlatformIO.
+4. פתח Serial Monitor בקצב `115200` ואמת שהמודול התחבר לרשת והדפיס כתובת IP.
+5. בדשבורד, שמור את כתובת ה-API בפורמט `http://<ip>` ולחץ "בדוק חיבור".
+6. אם `/api/sensors` מחזיר `sensor_read_failed`, בדוק שוב:
+   - חיווט TX/RX,
+   - קרקע משותפת (GND),
+   - שהרומבה במצב START/SAFE.
+7. מומלץ להתחיל עם `esp32/roomba_basic_start.ino` כדי לוודא שהרומבה מגיבה לפקודות בסיסיות לפני הפעלת API מלא.
