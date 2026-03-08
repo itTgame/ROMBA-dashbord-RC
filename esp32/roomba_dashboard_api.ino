@@ -249,6 +249,8 @@ void setup() {
   server.on("/api/safe", HTTP_OPTIONS, handleOptions);
   server.on("/api/stop", HTTP_OPTIONS, handleOptions);
 
+  server.onNotFound(handleNotFound);
+
   server.begin();
   Serial.println("שרת HTTP מוכן.");
 }

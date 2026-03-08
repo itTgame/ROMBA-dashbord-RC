@@ -70,6 +70,21 @@ function setApiBase(value, save = false) {
   ui.apiBaseDisplay.textContent = normalized || "--";
 }
 
+
+function isMixedContentBlocked() {
+  if (!API_BASE) return false;
+  try {
+    const baseUrl = new URL(API_BASE);
+    return window.location.protocol === "https:" && baseUrl.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function mixedContentMessage() {
+  return "נחסם על ידי הדפדפן (Mixed Content): עמוד HTTPS לא יכול לקרוא ל-API ב-HTTP. הפעל את הדשבורד ב-HTTP מקומי או ספק ל-ESP32 גישה דרך HTTPS.";
+}
+
 function setOnlineState(state, text) {
   ui.dot.classList.remove("online", "offline");
   if (state === "online") ui.dot.classList.add("online");
@@ -168,6 +183,13 @@ async function refreshStatus() {
     return;
   }
 
+  if (isMixedContentBlocked()) {
+    ui.commandStatus.textContent = mixedContentMessage();
+    setOnlineState("offline", "חסימת Mixed Content");
+    clearUI();
+    return;
+  }
+
   statusBusy = true;
   try {
     await fetchJson("/api/status");
@@ -184,6 +206,13 @@ async function refreshSensors() {
   if (sensorsBusy) return;
   if (!API_BASE) {
     ui.commandStatus.textContent = "אין כתובת API";
+    return;
+  }
+
+  if (isMixedContentBlocked()) {
+    ui.commandStatus.textContent = mixedContentMessage();
+    ui.lastUpdate.textContent = "לא ניתן לטעון חיישנים בגלל Mixed Content.";
+    clearUI();
     return;
   }
 
@@ -209,6 +238,11 @@ function setButtonsDisabled(disabled) {
 async function sendAction(action) {
   if (!API_BASE) {
     ui.commandStatus.textContent = "אין כתובת API";
+    return;
+  }
+
+  if (isMixedContentBlocked()) {
+    ui.commandStatus.textContent = mixedContentMessage();
     return;
   }
 
@@ -272,6 +306,10 @@ function bootstrap() {
     }
 
     setApiBase(normalized, true);
+    if (isMixedContentBlocked()) {
+      ui.commandStatus.textContent = mixedContentMessage();
+      return;
+    }
     await testConnection();
   });
 
