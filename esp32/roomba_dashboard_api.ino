@@ -37,7 +37,12 @@ struct SensorSnapshot {
 void handleCors() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.sendHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+  server.sendHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+}
+
+void sendJson(int code, const String& body) {
+  handleCors();
+  server.send(code, "application/json", body);
 }
 
 void handleOptions() {
@@ -189,22 +194,19 @@ void handleSensors() {
 void handleClean() {
   ensureRoombaReady();
   sendRoombaCmd(135, "clean");
-  handleCors();
-  server.send(200, "application/json", "{\"ok\":true,\"action\":\"clean\"}");
+  sendJson(200, "{\"ok\":true,\"action\":\"clean\"}");
 }
 
 void handleSpot() {
   ensureRoombaReady();
   sendRoombaCmd(134, "spot");
-  handleCors();
-  server.send(200, "application/json", "{\"ok\":true,\"action\":\"spot\"}");
+  sendJson(200, "{\"ok\":true,\"action\":\"spot\"}");
 }
 
 void handleSafe() {
   ensureRoombaReady();
   sendRoombaCmd(131, "safe");
-  handleCors();
-  server.send(200, "application/json", "{\"ok\":true,\"action\":\"safe\"}");
+  sendJson(200, "{\"ok\":true,\"action\":\"safe\"}");
 }
 
 void handleStop() {
@@ -257,4 +259,6 @@ void setup() {
 
 void loop() {
   server.handleClient();
+  sampleSensorsIfDue();
+  ensureWifi(false);
 }
