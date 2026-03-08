@@ -60,19 +60,3 @@
    - קרקע משותפת (GND),
    - שהרומבה במצב START/SAFE.
 7. מומלץ להתחיל עם `esp32/roomba_basic_start.ino` כדי לוודא שהרומבה מגיבה לפקודות בסיסיות לפני הפעלת API מלא.
-
-
-## HTTPS / HTTP ו-Mixed Content
-כאשר הדשבורד נפתח מ-GitHub Pages הוא רץ על `HTTPS`, אבל רוב פרויקטי ESP32 זמינים על `HTTP`.
-בדפדפנים מודרניים זה עלול להיחסם כ-**Mixed Content** (גם אם CORS תקין).
-
-מה כן עשינו בקוד ה-ESP32:
-- הוגדר `Access-Control-Allow-Origin: *` (וכן `Methods/Headers`) בכל נתיבי ה-API כדי לתמוך בקריאות Cross-Origin.
-
-מה חשוב לדעת בפועל:
-- `CORS` פותר הרשאות Cross-Origin, אבל **לא עוקף** חסימת Mixed Content של HTTPS→HTTP.
-
-פתרונות מומלצים:
-1. לפיתוח מקומי: להריץ את הדשבורד ב-HTTP מקומי (למשל `python -m http.server`) ואז לפנות ל-ESP32 ב-HTTP.
-2. לפריסה אינטרנטית: להעמיד שכבת HTTPS באמצע (Reverse Proxy / Tunnel) שמדברת ב-HTTP מול ה-ESP32.
-3. או להפעיל API מאובטח (HTTPS) בצד המכשיר/שער ברשת.

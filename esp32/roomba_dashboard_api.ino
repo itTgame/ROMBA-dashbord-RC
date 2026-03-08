@@ -45,11 +45,6 @@ void handleOptions() {
   server.send(204);
 }
 
-void handleNotFound() {
-  handleCors();
-  server.send(404, "application/json", "{\"ok\":false,\"error\":\"not_found\"}");
-}
-
 void writeCmd(uint8_t opcode) {
   RoombaSerial.write(opcode);
   RoombaSerial.flush();
