@@ -1,3 +1,15 @@
+/*
+  roomba_dashboard_api.ino
+  גרסה מתוקנת ומשופרת - כולל:
+  - handleNotFound
+  - sampleSensorsIfDue (cache חיישנים)
+  - ensureWifi(bool) עם reconnect
+  - queryPacketWithRetries + שדרוג queryU8/queryU16/queryI16
+  - בדיקת API_KEY אופציונלית
+  - CORS handling
+  - שימוש ב-cachedSensors ב-handleSensors (עם גיבוי synchronous)
+*/
+
 #include <WiFi.h>
 #include <WebServer.h>
 
