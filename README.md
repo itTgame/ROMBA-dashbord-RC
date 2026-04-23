@@ -1,15 +1,15 @@
-# Roomba Pro Dashboard
+# ROMBA-dashbord-RC
 
-דשבורד מובייל מלא לשליטה ב-Roomba דרך REST API (מיועד ל-ESP32 עם SCI).
+A mobile-first dashboard for controlling Roomba over a REST API (targeting an ESP32 SCI bridge).
 
-## יכולות עיקריות
-- שליחת פקודות בזמן אמת: `Clean`, `Spot`, `Safe`, `Stop`.
-- ניטור חיישנים בלייב (`/api/sensors`) כל ~3 שניות.
-- תצוגת מצב סוללה (mV + אחוז משוער), מצב טעינה, זרם וכפתורים.
-- תצוגה מלאה של כל החיישנים שחוזרים מ-`/api/sensors` (דינמי לפי ה-JSON מהשרת).
-- ממשק רספונסיבי מלא + ניווט מקלדת לדשבורד מובייל.
+## Core features
+- Real-time commands: `Clean`, `Spot`, `Safe`, `Stop`.
+- Live sensor polling from `/api/sensors` (roughly every 3 seconds from the UI side).
+- Battery status display (mV + estimated percentage), charging state, current, and button bitmap.
+- Full dynamic rendering of all keys returned by `/api/sensors`.
+- Responsive UI and keyboard navigation support.
 
-## REST API צפוי מהשרת (ESP32)
+## Expected REST API from ESP32
 - `GET /api/status`
 - `GET /api/sensors`
 - `POST /api/clean`
@@ -17,46 +17,47 @@
 - `POST /api/safe`
 - `POST /api/stop`
 
-## דוגמת JSON ל-`/api/sensors`
+## Example `/api/sensors` JSON
 ```json
 {
-  "battery_mV": 15840,
+  "battery_mV": 15600,
   "charging_state": 2,
-  "current_mA": -520,
-  "buttons": 1,
-  "bumper_left": false,
-  "bumper_right": true,
-  "cliff": false
+  "current_mA": -320,
+  "buttons": 0,
+  "bump_left": false,
+  "bump_right": false,
+  "wheel_drop_left": false,
+  "wheel_drop_right": false
 }
 ```
 
-## איך מפעילים מהר? (2 דקות)
-1. מצא את כתובת ה-IP של ה-ESP32 באותה רשת Wi‑Fi (לדוגמה: `192.168.1.50`).
-2. פתח את הדשבורד.
-3. בכרטיס **"הגדרת חיבור API"** הזן: `http://<ESP32-IP>`.
-4. לחץ **"שמור כתובת"** ואז **"בדוק חיבור"**.
-5. אם למעלה מופיע **"מחובר לרומבה"** — זה עובד ✅
+## Quick start (2 minutes)
+1. Find the ESP32 IP on your Wi-Fi network (for example: `192.168.1.50`).
+2. Open the dashboard.
+3. In **API Connection Setup**, enter: `http://<ESP32-IP>`.
+4. Click **Save Address**, then **Test Connection**.
+5. If the top status shows **Connected to Roomba**, you are good to go.
 
-## התקנה
-1. העלה את הפרויקט לריפו GitHub ציבורי.
-2. עבור ל-Settings → Pages.
-3. בחר branch `main` ותיקייה `/root`.
-4. פתח את הדשבורד דרך כתובת ה-Pages.
-5. במסך "הגדרת חיבור API" הזן את כתובת ה-ESP32 (לדוגמה `http://192.168.1.50`) ולחץ **"שמור כתובת"**.
-6. אחרי שמירה, הכתובת נשמרת אוטומטית במכשיר (`localStorage`) כך שאין צורך להקליד שוב בכל פתיחה.
-7. אופציונלי: אפשר גם לפתוח ישירות עם פרמטר ב-URL:
-   `https://<user>.github.io/<repo>/?apiBase=http://192.168.1.50`
-   (נתמך גם alias של `?api=...`).
-8. הכנס את כתובת ה-Pages ב-CloudPhone Console.
+## GitHub Pages deployment
+1. Push this project to a public GitHub repository.
+2. Go to **Settings → Pages**.
+3. Select branch `main` and folder `/root`.
+4. Open the dashboard using the generated Pages URL.
+5. In **API Connection Setup**, enter the ESP32 address (`http://192.168.1.50` pattern) and click **Save Address**.
+6. The address is persisted in `localStorage`, so you do not need to re-enter it every time.
+7. Optional: open directly with URL parameter:
+   - `https://<your-pages-domain>/?apiBase=http://192.168.1.50`
+   - Alias `?api=...` is also supported.
+8. Add the Pages URL to CloudPhone Console if required.
 
-## הנחיות נוספות בעברית (ESP32 + רומבה)
-1. פתח את `esp32/roomba_dashboard_api.ino` ועדכן `WIFI_SSID` ו-`WIFI_PASS` לערכים האמיתיים שלך.
-2. ודא שחיבור UART בין ESP32 לרומבה נכון: `RX=GPIO16`, `TX=GPIO17` (בהתאם לקוד).
-3. העלה את הסקץ' ל-ESP32 דרך Arduino IDE או PlatformIO.
-4. פתח Serial Monitor בקצב `115200` ואמת שהמודול התחבר לרשת והדפיס כתובת IP.
-5. בדשבורד, שמור את כתובת ה-API בפורמט `http://<ip>` ולחץ "בדוק חיבור".
-6. אם `/api/sensors` מחזיר `sensor_read_failed`, בדוק שוב:
-   - חיווט TX/RX,
-   - קרקע משותפת (GND),
-   - שהרומבה במצב START/SAFE.
-7. מומלץ להתחיל עם `esp32/roomba_basic_start.ino` כדי לוודא שהרומבה מגיבה לפקודות בסיסיות לפני הפעלת API מלא.
+## ESP32 + Roomba setup notes
+1. Open `esp32/roomba_dashboard_api.ino` and set `WIFI_SSID` and `WIFI_PASS`.
+2. Verify UART wiring between ESP32 and Roomba (`RX=GPIO16`, `TX=GPIO17`, per code).
+3. Upload the sketch using Arduino IDE or PlatformIO.
+4. Open Serial Monitor at `115200` baud and verify network connection + printed IP.
+5. In the dashboard, save API base in `http://<ip>` format and click **Test Connection**.
+6. If `/api/sensors` returns `sensor_read_failed`, check:
+   - TX/RX wiring,
+   - shared GND,
+   - Roomba in START/SAFE mode.
+7. Recommended: begin with `esp32/roomba_basic_start.ino` to validate baseline command response before enabling full API mode.
