@@ -6,14 +6,14 @@ let cooldownUntil = 0;
 let sensorsBusy = false;
 let statusBusy = false;
 
-// מיפוי קודי טעינה שמגיעים מהרומבה לטקסט ידידותי בעברית.
+// Map charging codes from Roomba to user-friendly labels.
 const chargingLabels = {
-  0: "לא בטעינה",
-  1: "שיקום סוללה",
-  2: "טעינה מלאה",
-  3: "טעינת תחזוקה",
-  4: "ממתין",
-  5: "תקלה בטעינה"
+  0: "Not charging",
+  1: "Reconditioning",
+  2: "Full charging",
+  3: "Trickle charging",
+  4: "Waiting",
+  5: "Charging fault"
 };
 
 const ui = {
@@ -42,7 +42,7 @@ function normalizeApiBase(value) {
   return value.trim().replace(/\/+$/, "");
 }
 
-// קבלת כתובת API לפי קדימות: פרמטר בכתובת > localStorage.
+// Resolve API base by priority: URL parameter > localStorage.
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
   const fromQuery = params.get("apiBase") || params.get("api");
@@ -82,7 +82,7 @@ function isMixedContentBlocked() {
 }
 
 function mixedContentMessage() {
-  return "נחסם על ידי הדפדפן (Mixed Content): עמוד HTTPS לא יכול לקרוא ל-API ב-HTTP. הפעל את הדשבורד ב-HTTP מקומי או ספק ל-ESP32 גישה דרך HTTPS.";
+  return "Blocked by browser (Mixed Content): an HTTPS page cannot call an HTTP API. Run this dashboard over local HTTP or expose the ESP32 API over HTTPS.";
 }
 
 function setOnlineState(state, text) {
@@ -100,7 +100,7 @@ function clearUI() {
   ui.chargingCode.textContent = "--";
   ui.chargingState.textContent = "--";
   ui.batteryFill.style.width = "0%";
-  ui.sensorGrid.innerHTML = '<div class="mini">אין נתוני חיישנים.</div>';
+  ui.sensorGrid.innerHTML = '<div class="mini">No sensor data.</div>';
 }
 
 function batteryColor(pct) {
@@ -109,20 +109,20 @@ function batteryColor(pct) {
   return "#3ee089";
 }
 
-// אומדן אחוז סוללה לרומבה על בסיס סוללת ליתיום 4S.
+// Estimate Roomba battery percentage based on a 4S lithium pack.
 function estimateBatteryPercent(mv) {
   const pct = ((mv - 14000) / (16800 - 14000)) * 100;
   return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
 function toDisplayValue(value) {
-  if (typeof value === "boolean") return value ? "פועל" : "כבוי";
+  if (typeof value === "boolean") return value ? "On" : "Off";
   if (Array.isArray(value)) return value.join(", ");
   if (value && typeof value === "object") {
     try {
       return JSON.stringify(value);
     } catch {
-      return "[אובייקט]";
+      return "[Object]";
     }
   }
 
@@ -132,7 +132,7 @@ function toDisplayValue(value) {
 function renderAllSensors(data) {
   const keys = Object.keys(data || {}).sort();
   if (!keys.length) {
-    ui.sensorGrid.innerHTML = '<div class="mini">לא התקבלו נתוני חיישנים.</div>';
+    ui.sensorGrid.innerHTML = '<div class="mini">No sensor payload received.</div>';
     return;
   }
 
@@ -156,11 +156,11 @@ function applySensorData(data) {
   ui.batteryFill.style.background = batteryColor(pct);
   ui.currentMa.textContent = Number.isFinite(current) ? current : "--";
   ui.chargingCode.textContent = Number.isFinite(code) ? code : "--";
-  ui.chargingState.textContent = chargingLabels[code] || "לא ידוע";
+  ui.chargingState.textContent = chargingLabels[code] || "Unknown";
   ui.buttons.textContent = Number(data.buttons ?? 0);
 
   renderAllSensors(data);
-  ui.lastUpdate.textContent = `עודכן: ${new Date().toLocaleTimeString("he-IL")}`;
+  ui.lastUpdate.textContent = `Updated: ${new Date().toLocaleTimeString("en-US")}`;
 }
 
 async function fetchJson(path, options = {}) {
@@ -178,14 +178,14 @@ async function fetchJson(path, options = {}) {
 async function refreshStatus() {
   if (statusBusy) return;
   if (!API_BASE) {
-    ui.commandStatus.textContent = "אין כתובת API";
-    setOnlineState("offline", "אין תקשורת API");
+    ui.commandStatus.textContent = "No API address";
+    setOnlineState("offline", "No API connectivity");
     return;
   }
 
   if (isMixedContentBlocked()) {
     ui.commandStatus.textContent = mixedContentMessage();
-    setOnlineState("offline", "חסימת Mixed Content");
+    setOnlineState("offline", "Mixed Content blocked");
     clearUI();
     return;
   }
@@ -193,9 +193,9 @@ async function refreshStatus() {
   statusBusy = true;
   try {
     await fetchJson("/api/status");
-    setOnlineState("online", "מחובר לרומבה");
+    setOnlineState("online", "Connected to Roomba");
   } catch {
-    setOnlineState("offline", "אין תקשורת API");
+    setOnlineState("offline", "No API connectivity");
     clearUI();
   } finally {
     statusBusy = false;
@@ -205,24 +205,24 @@ async function refreshStatus() {
 async function refreshSensors() {
   if (sensorsBusy) return;
   if (!API_BASE) {
-    ui.commandStatus.textContent = "אין כתובת API";
+    ui.commandStatus.textContent = "No API address";
     return;
   }
 
   if (isMixedContentBlocked()) {
     ui.commandStatus.textContent = mixedContentMessage();
-    ui.lastUpdate.textContent = "לא ניתן לטעון חיישנים בגלל Mixed Content.";
+    ui.lastUpdate.textContent = "Cannot load sensors due to Mixed Content.";
     clearUI();
     return;
   }
 
   sensorsBusy = true;
-  ui.lastUpdate.textContent = "טוען נתונים...";
+  ui.lastUpdate.textContent = "Loading data...";
   try {
     const data = await fetchJson("/api/sensors");
     applySensorData(data);
   } catch (err) {
-    ui.lastUpdate.textContent = `שגיאת קריאה: ${err.message}`;
+    ui.lastUpdate.textContent = `Read error: ${err.message}`;
     clearUI();
   } finally {
     sensorsBusy = false;
@@ -237,7 +237,7 @@ function setButtonsDisabled(disabled) {
 
 async function sendAction(action) {
   if (!API_BASE) {
-    ui.commandStatus.textContent = "אין כתובת API";
+    ui.commandStatus.textContent = "No API address";
     return;
   }
 
@@ -248,18 +248,18 @@ async function sendAction(action) {
 
   const now = Date.now();
   if (now < cooldownUntil) {
-    ui.commandStatus.textContent = "ממתין זמן צינון קצר...";
+    ui.commandStatus.textContent = "Waiting for short cooldown...";
     return;
   }
 
   setButtonsDisabled(true);
-  ui.commandStatus.textContent = `שולח ${action}...`;
+  ui.commandStatus.textContent = `Sending ${action}...`;
 
   try {
     await fetchJson(`/api/${action}`, { method: "POST" });
-    ui.commandStatus.textContent = `✅ נשלחה פקודת ${action}`;
+    ui.commandStatus.textContent = `✅ ${action} command sent`;
   } catch (err) {
-    ui.commandStatus.textContent = `❌ פקודת ${action} נכשלה (${err.message})`;
+    ui.commandStatus.textContent = `❌ ${action} command failed (${err.message})`;
   } finally {
     cooldownUntil = Date.now() + 300;
     setTimeout(() => setButtonsDisabled(false), 300);
@@ -267,12 +267,12 @@ async function sendAction(action) {
 }
 
 async function testConnection() {
-  ui.commandStatus.textContent = "בודק חיבור ל-API...";
+  ui.commandStatus.textContent = "Testing API connection...";
   await refreshStatus();
   await refreshSensors();
 
-  if (ui.conn.textContent.includes("מחובר")) {
-    ui.commandStatus.textContent = "✅ החיבור תקין, אפשר לשלוח פקודות.";
+  if (ui.conn.textContent.includes("Connected")) {
+    ui.commandStatus.textContent = "✅ Connection is healthy; commands are available.";
   }
 }
 
@@ -286,7 +286,7 @@ function bootstrap() {
   }
 
   if (!API_BASE) {
-    ui.commandStatus.textContent = "הזן כתובת API ולחץ שמור.";
+    ui.commandStatus.textContent = "Enter an API address and click Save.";
   }
 
   ui.actionButtons.forEach((btn) => {
@@ -296,12 +296,12 @@ function bootstrap() {
   ui.saveApiBase.addEventListener("click", async () => {
     const normalized = normalizeApiBase(ui.apiBaseInput.value);
     if (!normalized) {
-      ui.commandStatus.textContent = "יש להזין כתובת API לפני שמירה.";
+      ui.commandStatus.textContent = "You must enter an API address before saving.";
       return;
     }
 
     if (!/^https?:\/\//i.test(normalized)) {
-      ui.commandStatus.textContent = "כתובת חייבת להתחיל ב-http:// או https://";
+      ui.commandStatus.textContent = "Address must start with http:// or https://";
       return;
     }
 
@@ -318,11 +318,11 @@ function bootstrap() {
   ui.clearApiBase.addEventListener("click", () => {
     setApiBase("", true);
     clearUI();
-    setOnlineState("offline", "אין תקשורת API");
-    ui.commandStatus.textContent = "כתובת API נוקתה.";
+    setOnlineState("offline", "No API connectivity");
+    ui.commandStatus.textContent = "API address cleared.";
   });
 
-  // ניווט מקלדת נוח לשימוש במסכים ללא עכבר.
+  // Keyboard navigation for pointer-free screens.
   const keyOrder = ["clean", "spot", "safe", "stop"];
   let keyFocus = 0;
   const refreshKeyFocus = () => {
