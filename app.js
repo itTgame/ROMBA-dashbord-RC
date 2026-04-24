@@ -6,7 +6,6 @@ let cooldownUntil = 0;
 let sensorsBusy = false;
 let statusBusy = false;
 
-// Map charging codes from Roomba to user-friendly labels.
 const chargingLabels = {
   0: "Not charging",
   1: "Reconditioning",
@@ -42,7 +41,6 @@ function normalizeApiBase(value) {
   return value.trim().replace(/\/+$/, "");
 }
 
-// Resolve API base by priority: URL parameter > localStorage.
 function resolveApiBase() {
   const params = new URLSearchParams(window.location.search);
   const fromQuery = params.get("apiBase") || params.get("api");
@@ -69,7 +67,6 @@ function setApiBase(value, save = false) {
   ui.apiBaseInput.value = normalized;
   ui.apiBaseDisplay.textContent = normalized || "--";
 }
-
 
 function isMixedContentBlocked() {
   if (!API_BASE) return false;
@@ -109,7 +106,6 @@ function batteryColor(pct) {
   return "#3ee089";
 }
 
-// Estimate Roomba battery percentage based on a 4S lithium pack.
 function estimateBatteryPercent(mv) {
   const pct = ((mv - 14000) / (16800 - 14000)) * 100;
   return Math.max(0, Math.min(100, Math.round(pct)));
@@ -248,7 +244,7 @@ async function sendAction(action) {
 
   const now = Date.now();
   if (now < cooldownUntil) {
-    ui.commandStatus.textContent = "Waiting for short cooldown...";
+    ui.commandStatus.textContent = "Waiting...";
     return;
   }
 
@@ -257,9 +253,9 @@ async function sendAction(action) {
 
   try {
     await fetchJson(`/api/${action}`, { method: "POST" });
-    ui.commandStatus.textContent = `✅ ${action} command sent`;
+    ui.commandStatus.textContent = `${action} command sent`;
   } catch (err) {
-    ui.commandStatus.textContent = `❌ ${action} command failed (${err.message})`;
+    ui.commandStatus.textContent = `${action} command failed (${err.message})`;
   } finally {
     cooldownUntil = Date.now() + 300;
     setTimeout(() => setButtonsDisabled(false), 300);
@@ -272,7 +268,7 @@ async function testConnection() {
   await refreshSensors();
 
   if (ui.conn.textContent.includes("Connected")) {
-    ui.commandStatus.textContent = "✅ Connection is healthy; commands are available.";
+    ui.commandStatus.textContent = "Connection is healthy.";
   }
 }
 
@@ -296,7 +292,7 @@ function bootstrap() {
   ui.saveApiBase.addEventListener("click", async () => {
     const normalized = normalizeApiBase(ui.apiBaseInput.value);
     if (!normalized) {
-      ui.commandStatus.textContent = "You must enter an API address before saving.";
+      ui.commandStatus.textContent = "Enter an API address first.";
       return;
     }
 
@@ -322,28 +318,6 @@ function bootstrap() {
     ui.commandStatus.textContent = "API address cleared.";
   });
 
-  // Keyboard navigation for pointer-free screens.
-  const keyOrder = ["clean", "spot", "safe", "stop"];
-  let keyFocus = 0;
-  const refreshKeyFocus = () => {
-    ui.actionButtons.forEach((b, i) => {
-      b.style.outline = i === keyFocus ? "2px solid #a8c7ff" : "none";
-    });
-  };
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowDown") {
-      keyFocus = (keyFocus + 1) % keyOrder.length;
-      refreshKeyFocus();
-    } else if (e.key === "ArrowUp") {
-      keyFocus = (keyFocus - 1 + keyOrder.length) % keyOrder.length;
-      refreshKeyFocus();
-    } else if (e.key === "Enter") {
-      sendAction(keyOrder[keyFocus]);
-    }
-  });
-
-  refreshKeyFocus();
   refreshStatus();
   refreshSensors();
   setInterval(refreshStatus, REFRESH_MS * 3);
