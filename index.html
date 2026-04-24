@@ -3,20 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Roomba Pro Dashboard</title>
+  <title>Roomba 886 Dashboard</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="app">
     <section class="card wide">
       <div class="header">
-        <h1 class="title">🤖 Roomba Control Dashboard</h1>
+        <h1 class="title">Roomba 886 Dashboard</h1>
         <div class="status-chip"><span class="dot" id="dot"></span><span id="conn">Checking connection...</span></div>
       </div>
       <p class="mini" id="lastUpdate">No data received yet.</p>
     </section>
 
-    <!-- Core metrics card for quick monitoring -->
     <section class="card">
       <h2 class="section-title">System Metrics</h2>
       <div class="metrics">
@@ -50,7 +49,7 @@
         <ol class="quick-steps">
           <li>Enter the ESP32 address (for example: <code>http://192.168.1.50</code>).</li>
           <li>Click <b>"Save Address"</b>.</li>
-          <li>Click <b>"Test Connection"</b> — once connected, the header will show "Connected to Roomba".</li>
+          <li>Click <b>"Test Connection"</b> - once connected, the header will show "Connected to Roomba".</li>
         </ol>
         <div class="api-row">
           <input class="api-input" id="apiBaseInput" type="url" placeholder="http://192.168.1.50" inputmode="url" />
@@ -65,22 +64,21 @@
     <section class="card">
       <h2 class="section-title">Command Controls</h2>
       <div class="controls">
-        <button class="primary" data-action="clean">🧹 Clean</button>
-        <button class="alt" data-action="spot">🎯 Spot</button>
-        <button data-action="safe">🛡️ Safe Mode</button>
-        <button class="warn" data-action="stop">⏹️ Stop</button>
+        <button class="primary" data-action="clean">Clean</button>
+        <button class="alt" data-action="spot">Spot</button>
+        <button data-action="safe">Safe Mode</button>
+        <button class="warn" data-action="stop">Stop</button>
       </div>
       <div class="mini" id="commandStatus">Ready for commands.</div>
     </section>
 
-    <!-- Displays all keys coming from /api/sensors in real time -->
     <section class="card wide">
       <h2 class="title">Live Sensors (All Sensors)</h2>
       <div class="mini">The table shows every key returned by <code>/api/sensors</code> in real time.</div>
       <div class="sensor-grid" id="sensorGrid"></div>
     </section>
 
-    <section class="footer wide">Roomba Control Dashboard • Auto-refresh every second</section>
+    <section class="footer wide">Roomba 886 Dashboard - Auto-refresh every second</section>
   </main>
 
   <script src="app.js"></script>

@@ -1,8 +1,8 @@
 {
-  "id": "roomba-pro-dashboard",
-  "name": "Roomba Pro Dashboard",
+  "id": "roomba-886-dashboard",
+  "name": "Roomba 886 Dashboard",
   "version": "2.0.0",
-  "description": "Responsive Roomba dashboard for controlling and monitoring via ESP32 REST API",
+  "description": "Responsive Roomba 886 dashboard for controlling and monitoring via ESP32 REST API",
   "entry": "index.html",
   "type": "widget"
 }
