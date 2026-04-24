@@ -82,6 +82,10 @@ function mixedContentMessage() {
   return "Blocked by browser (Mixed Content): an HTTPS page cannot call an HTTP API. Run this dashboard over local HTTP or expose the ESP32 API over HTTPS.";
 }
 
+function setCommandStatus(text) {
+  ui.commandStatus.textContent = text;
+}
+
 function setOnlineState(state, text) {
   ui.dot.classList.remove("online", "offline");
   if (state === "online") ui.dot.classList.add("online");
@@ -174,13 +178,13 @@ async function fetchJson(path, options = {}) {
 async function refreshStatus() {
   if (statusBusy) return;
   if (!API_BASE) {
-    ui.commandStatus.textContent = "No API address";
+    setCommandStatus("No API address");
     setOnlineState("offline", "No API connectivity");
     return;
   }
 
   if (isMixedContentBlocked()) {
-    ui.commandStatus.textContent = mixedContentMessage();
+    setCommandStatus(mixedContentMessage());
     setOnlineState("offline", "Mixed Content blocked");
     clearUI();
     return;
@@ -201,12 +205,12 @@ async function refreshStatus() {
 async function refreshSensors() {
   if (sensorsBusy) return;
   if (!API_BASE) {
-    ui.commandStatus.textContent = "No API address";
+    setCommandStatus("No API address");
     return;
   }
 
   if (isMixedContentBlocked()) {
-    ui.commandStatus.textContent = mixedContentMessage();
+    setCommandStatus(mixedContentMessage());
     ui.lastUpdate.textContent = "Cannot load sensors due to Mixed Content.";
     clearUI();
     return;
@@ -233,29 +237,29 @@ function setButtonsDisabled(disabled) {
 
 async function sendAction(action) {
   if (!API_BASE) {
-    ui.commandStatus.textContent = "No API address";
+    setCommandStatus("No API address");
     return;
   }
 
   if (isMixedContentBlocked()) {
-    ui.commandStatus.textContent = mixedContentMessage();
+    setCommandStatus(mixedContentMessage());
     return;
   }
 
   const now = Date.now();
   if (now < cooldownUntil) {
-    ui.commandStatus.textContent = "Waiting...";
+    setCommandStatus("Waiting...");
     return;
   }
 
   setButtonsDisabled(true);
-  ui.commandStatus.textContent = `Sending ${action}...`;
+  setCommandStatus(`Sending ${action}...`);
 
   try {
     await fetchJson(`/api/${action}`, { method: "POST" });
-    ui.commandStatus.textContent = `${action} command sent`;
+    setCommandStatus(`${action} command sent`);
   } catch (err) {
-    ui.commandStatus.textContent = `${action} command failed (${err.message})`;
+    setCommandStatus(`${action} command failed (${err.message})`);
   } finally {
     cooldownUntil = Date.now() + 300;
     setTimeout(() => setButtonsDisabled(false), 300);
@@ -263,12 +267,12 @@ async function sendAction(action) {
 }
 
 async function testConnection() {
-  ui.commandStatus.textContent = "Testing API connection...";
+  setCommandStatus("Testing API connection...");
   await refreshStatus();
   await refreshSensors();
 
   if (ui.conn.textContent.includes("Connected")) {
-    ui.commandStatus.textContent = "Connection is healthy.";
+    setCommandStatus("Connection is healthy.");
   }
 }
 
@@ -282,7 +286,7 @@ function bootstrap() {
   }
 
   if (!API_BASE) {
-    ui.commandStatus.textContent = "Enter an API address and click Save.";
+    setCommandStatus("Enter an API address and click Save.");
   }
 
   ui.actionButtons.forEach((btn) => {
@@ -292,18 +296,18 @@ function bootstrap() {
   ui.saveApiBase.addEventListener("click", async () => {
     const normalized = normalizeApiBase(ui.apiBaseInput.value);
     if (!normalized) {
-      ui.commandStatus.textContent = "Enter an API address first.";
+      setCommandStatus("Enter an API address first.");
       return;
     }
 
     if (!/^https?:\/\//i.test(normalized)) {
-      ui.commandStatus.textContent = "Address must start with http:// or https://";
+      setCommandStatus("Address must start with http:// or https://");
       return;
     }
 
     setApiBase(normalized, true);
     if (isMixedContentBlocked()) {
-      ui.commandStatus.textContent = mixedContentMessage();
+      setCommandStatus(mixedContentMessage());
       return;
     }
     await testConnection();
@@ -315,7 +319,7 @@ function bootstrap() {
     setApiBase("", true);
     clearUI();
     setOnlineState("offline", "No API connectivity");
-    ui.commandStatus.textContent = "API address cleared.";
+    setCommandStatus("API address cleared.");
   });
 
   refreshStatus();
