@@ -1,15 +1,29 @@
 # ROMBA-dashbord-RC
 
-A mobile-first dashboard for controlling a Roomba 886 over a REST API (targeting an ESP32 SCI bridge).
+Simple local dashboard for a Roomba 886 connected through an ESP32 REST bridge.
 
-## Core features
-- Real-time commands: `Clean`, `Spot`, `Safe`, `Stop`.
-- Live sensor polling from `/api/sensors` (roughly every 3 seconds from the UI side).
-- Battery status display (mV + estimated percentage), charging state, current, and button bitmap.
-- Full dynamic rendering of all keys returned by `/api/sensors`.
-- Responsive UI and keyboard navigation support.
+## What it does
+- Sends `Clean`, `Spot`, `Safe`, and `Stop` commands
+- Polls `/api/sensors` and shows battery, charging state, current, and button data
+- Renders the full sensor payload returned by the ESP32 API
+- Saves the API base address in `localStorage`
 
-## Expected REST API from ESP32
+## Start in 2 minutes
+1. From the project folder, run `python3 -m http.server 8000`
+2. Open `http://localhost:8000`
+3. Enter your ESP32 address, for example `http://192.168.1.50`
+4. Click **Save**
+5. Click **Test**
+
+If the header shows `Connected to Roomba`, the setup is working.
+
+## Optional direct URL
+- `http://localhost:8000/?apiBase=http://192.168.1.50`
+- `?api=` is also supported as an alias
+
+If you open the dashboard from another device on your network, replace `localhost` with your computer's local IP address.
+
+## Expected ESP32 API
 - `GET /api/status`
 - `GET /api/sensors`
 - `POST /api/clean`
@@ -17,7 +31,7 @@ A mobile-first dashboard for controlling a Roomba 886 over a REST API (targeting
 - `POST /api/safe`
 - `POST /api/stop`
 
-## Example `/api/sensors` JSON
+## Example sensor response
 ```json
 {
   "battery_mV": 15600,
@@ -31,22 +45,20 @@ A mobile-first dashboard for controlling a Roomba 886 over a REST API (targeting
 }
 ```
 
-## Quick start for Roomba 886 (2 minutes)
-1. Find the ESP32 IP on your Wi-Fi network (for example: `192.168.1.50`).
-2. Open the dashboard.
-3. In **API Connection Setup**, enter: `http://<ESP32-IP>`.
-4. Click **Save Address**, then **Test Connection**.
-5. If the top status shows **Connected to Roomba**, you are good to go.
+## Wiring notes
+1. Open `esp32/roomba_dashboard_api.ino`
+2. Set `WIFI_SSID` and `WIFI_PASS`
+3. Verify UART wiring: `RX=GPIO16`, `TX=GPIO17`
+4. Upload the sketch with Arduino IDE or PlatformIO
+5. Open Serial Monitor at `115200` baud and confirm the ESP32 prints its IP
+6. In the dashboard, save the API base as `http://<ip>` and click **Test**
 
-## Local Python hosting
-1. From the project folder, start a local web server with `python3 -m http.server 8000`.
-2. Open the dashboard at `http://localhost:8000`.
-3. In **API Connection Setup**, enter the ESP32 address for your Roomba 886 setup (`http://192.168.1.50` pattern) and click **Save Address**.
-4. The address is persisted in `localStorage`, so you do not need to re-enter it every time.
-5. Optional: open directly with a URL parameter:
-   - `http://localhost:8000/?apiBase=http://192.168.1.50`
-   - Alias `?api=...` is also supported.
-6. If you open the dashboard from another device on your LAN, replace `localhost` with your computer's local IP address.
+If `/api/sensors` returns `sensor_read_failed`, check:
+- TX/RX wiring
+- Shared `GND`
+- Roomba is in `START` or `SAFE` mode
+
+Recommended: test first with `esp32/roomba_basic_start.ino` before using the full API sketch.
 
 ## Roomba 886 Mini-DIN pinout
 
@@ -59,15 +71,3 @@ A mobile-first dashboard for controlling a Roomba 886 over a REST API (targeting
 - Pin 5: `BRC` - Baud rate change
 - Pin 6: `GND` - Roomba battery ground
 - Pin 7: `GND` - Roomba battery ground
-
-## ESP32 + Roomba 886 setup notes
-1. Open `esp32/roomba_dashboard_api.ino` and set `WIFI_SSID` and `WIFI_PASS`.
-2. Verify UART wiring between ESP32 and Roomba (`RX=GPIO16`, `TX=GPIO17`, per code).
-3. Upload the sketch using Arduino IDE or PlatformIO.
-4. Open Serial Monitor at `115200` baud and verify network connection + printed IP.
-5. In the dashboard, save API base in `http://<ip>` format and click **Test Connection**.
-6. If `/api/sensors` returns `sensor_read_failed`, check:
-   - TX/RX wiring,
-   - shared GND,
-   - Roomba in START/SAFE mode.
-7. Recommended: begin with `esp32/roomba_basic_start.ino` to validate baseline command response before enabling full API mode.
