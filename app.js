@@ -176,44 +176,46 @@ async function fetchJson(path, options = {}) {
 }
 
 async function refreshStatus() {
-  if (statusBusy) return;
+  if (statusBusy) return false;
   if (!API_BASE) {
     setCommandStatus("No API address");
     setOnlineState("offline", "No API connectivity");
-    return;
+    return false;
   }
 
   if (isMixedContentBlocked()) {
     setCommandStatus(mixedContentMessage());
     setOnlineState("offline", "Mixed Content blocked");
     clearUI();
-    return;
+    return false;
   }
 
   statusBusy = true;
   try {
     await fetchJson("/api/status");
     setOnlineState("online", "Connected to Roomba");
+    return true;
   } catch {
     setOnlineState("offline", "No API connectivity");
     clearUI();
+    return false;
   } finally {
     statusBusy = false;
   }
 }
 
 async function refreshSensors() {
-  if (sensorsBusy) return;
+  if (sensorsBusy) return false;
   if (!API_BASE) {
     setCommandStatus("No API address");
-    return;
+    return false;
   }
 
   if (isMixedContentBlocked()) {
     setCommandStatus(mixedContentMessage());
     ui.lastUpdate.textContent = "Cannot load sensors due to Mixed Content.";
     clearUI();
-    return;
+    return false;
   }
 
   sensorsBusy = true;
@@ -221,9 +223,11 @@ async function refreshSensors() {
   try {
     const data = await fetchJson("/api/sensors");
     applySensorData(data);
+    return true;
   } catch (err) {
     ui.lastUpdate.textContent = `Read error: ${err.message}`;
     clearUI();
+    return false;
   } finally {
     sensorsBusy = false;
   }
@@ -268,10 +272,10 @@ async function sendAction(action) {
 
 async function testConnection() {
   setCommandStatus("Testing API connection...");
-  await refreshStatus();
-  await refreshSensors();
+  const statusOk = await refreshStatus();
+  const sensorsOk = await refreshSensors();
 
-  if (ui.conn.textContent.includes("Connected")) {
+  if (statusOk && sensorsOk) {
     setCommandStatus("Connection is healthy.");
   }
 }

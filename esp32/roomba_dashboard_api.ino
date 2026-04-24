@@ -326,6 +326,8 @@ void handleSensors() {
   body += "\"charging_state\":" + String(cachedSensors.chargingState) + ",";
   body += "\"current_mA\":" + String(cachedSensors.currentMa) + ",";
   body += "\"buttons\":" + String(cachedSensors.buttons) + ",";
+  body += "\"bump_left\":" + String(cachedSensors.bumperLeft ? "true" : "false") + ",";
+  body += "\"bump_right\":" + String(cachedSensors.bumperRight ? "true" : "false") + ",";
   body += "\"bumper_left\":" + String(cachedSensors.bumperLeft ? "true" : "false") + ",";
   body += "\"bumper_right\":" + String(cachedSensors.bumperRight ? "true" : "false") + ",";
   body += "\"cliff_left\":" + String(cachedSensors.cliffLeft ? "true" : "false") + ",";
