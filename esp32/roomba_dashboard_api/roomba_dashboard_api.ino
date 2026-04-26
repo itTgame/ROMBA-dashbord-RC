@@ -21,7 +21,7 @@ namespace {
 constexpr int ROOMBA_RX = 16;
 constexpr int ROOMBA_TX = 17;
 
-const char* WIFI_SSID = ".";
+const char* WIFI_SSID = "";
 const char* WIFI_PASS = "";
 const char* WIFI_HOSTNAME = "roomba-dashboard";
 const char* API_KEY = "";
