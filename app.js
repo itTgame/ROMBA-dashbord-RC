@@ -1,10 +1,16 @@
 const $ = (id) => document.getElementById(id);
 
 let API_BASE = "";
-const REFRESH_MS = 1500;
+const SENSOR_REFRESH_MS = 250;
+const STATUS_REFRESH_MS = 2000;
+const DRIVE_REPEAT_MS = 200;
 let cooldownUntil = 0;
 let sensorsBusy = false;
 let statusBusy = false;
+let driveInterval = null;
+let activeDrive = null;
+let activeDrivePointerId = null;
+let driveSessionId = 0;
 
 const chargingLabels = {
   0: "Not charging",
@@ -29,6 +35,8 @@ const ui = {
   sensorGrid: $("sensorGrid"),
   commandStatus: $("commandStatus"),
   actionButtons: [...document.querySelectorAll("button[data-action]")],
+  driveButtons: [...document.querySelectorAll("button[data-drive]")],
+  driveStop: document.querySelector("button[data-drive-stop]"),
   apiBaseInput: $("apiBaseInput"),
   apiBaseDisplay: $("apiBaseDisplay"),
   saveApiBase: $("saveApiBase"),
@@ -166,6 +174,7 @@ function applySensorData(data) {
 async function fetchJson(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Accept: "application/json" },
+    cache: "no-store",
     ...options
   });
 
@@ -219,7 +228,6 @@ async function refreshSensors() {
   }
 
   sensorsBusy = true;
-  ui.lastUpdate.textContent = "Loading data...";
   try {
     const data = await fetchJson("/api/sensors");
     applySensorData(data);
@@ -239,6 +247,95 @@ function setButtonsDisabled(disabled) {
   });
 }
 
+function setDriveActive(direction) {
+  activeDrive = direction;
+  ui.driveButtons.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.drive === direction);
+  });
+}
+
+function clearDriveActive() {
+  activeDrive = null;
+  activeDrivePointerId = null;
+  ui.driveButtons.forEach((btn) => btn.classList.remove("active"));
+}
+
+async function sendDrive(direction, updateStatus = true) {
+  if (!API_BASE) {
+    setCommandStatus("No API address");
+    return false;
+  }
+
+  if (isMixedContentBlocked()) {
+    setCommandStatus(mixedContentMessage());
+    return false;
+  }
+
+  try {
+    await fetchJson(`/api/${direction}`, { method: "POST" });
+    if (updateStatus) {
+      setCommandStatus(`${direction} drive command sent`);
+    }
+    return true;
+  } catch (err) {
+    if (updateStatus) {
+      setCommandStatus(`${direction} drive failed (${err.message})`);
+    }
+    return false;
+  }
+}
+
+function stopDriveLoop(sendStop = true) {
+  driveSessionId += 1;
+  if (driveInterval) {
+    clearInterval(driveInterval);
+    driveInterval = null;
+  }
+  clearDriveActive();
+
+  if (sendStop) {
+    sendDrive("stop", true).then(() => {
+      refreshSensors();
+    });
+  }
+}
+
+async function startDriveLoop(direction, pointerId, button) {
+  if (activeDrive === direction && activeDrivePointerId === pointerId && driveInterval) {
+    return;
+  }
+
+  stopDriveLoop(false);
+  const sessionId = ++driveSessionId;
+  activeDrivePointerId = pointerId;
+  setDriveActive(direction);
+  if (button?.setPointerCapture && pointerId !== undefined && pointerId !== null) {
+    try {
+      button.setPointerCapture(pointerId);
+    } catch {
+      // Ignore capture failures and rely on the watchdog on the ESP32.
+    }
+  }
+
+  const ok = await sendDrive(direction, true);
+  if (!ok || driveSessionId !== sessionId || activeDrive !== direction || activeDrivePointerId !== pointerId) {
+    clearDriveActive();
+    if (ok) {
+      sendDrive("stop", false);
+    }
+    return;
+  }
+
+  driveInterval = setInterval(() => {
+    if (driveSessionId !== sessionId || activeDrive !== direction) {
+      clearInterval(driveInterval);
+      driveInterval = null;
+      return;
+    }
+    sendDrive(direction, false);
+  }, DRIVE_REPEAT_MS);
+}
+
 async function sendAction(action) {
   if (!API_BASE) {
     setCommandStatus("No API address");
@@ -256,12 +353,15 @@ async function sendAction(action) {
     return;
   }
 
+  stopDriveLoop(false);
   setButtonsDisabled(true);
   setCommandStatus(`Sending ${action}...`);
 
   try {
     await fetchJson(`/api/${action}`, { method: "POST" });
     setCommandStatus(`${action} command sent`);
+    await refreshStatus();
+    await refreshSensors();
   } catch (err) {
     setCommandStatus(`${action} command failed (${err.message})`);
   } finally {
@@ -280,6 +380,26 @@ async function testConnection() {
   }
 }
 
+function bindDriveButton(btn) {
+  const direction = btn.dataset.drive;
+  const start = async (event) => {
+    event.preventDefault();
+    await startDriveLoop(direction, event.pointerId, btn);
+  };
+  const stop = (event) => {
+    event.preventDefault();
+    if (activeDrive === direction && (activeDrivePointerId === null || event.pointerId === activeDrivePointerId)) {
+      stopDriveLoop(true);
+    }
+  };
+
+  btn.addEventListener("pointerdown", start);
+  btn.addEventListener("pointerup", stop);
+  btn.addEventListener("pointercancel", stop);
+  btn.addEventListener("lostpointercapture", stop);
+  btn.addEventListener("contextmenu", (event) => event.preventDefault());
+}
+
 function bootstrap() {
   setApiBase(resolveApiBase(), false);
 
@@ -295,6 +415,21 @@ function bootstrap() {
 
   ui.actionButtons.forEach((btn) => {
     btn.addEventListener("click", () => sendAction(btn.dataset.action));
+  });
+
+  ui.driveButtons.forEach(bindDriveButton);
+  ui.driveStop.addEventListener("click", () => stopDriveLoop(true));
+
+  window.addEventListener("pointerup", () => {
+    if (activeDrive) {
+      stopDriveLoop(true);
+    }
+  });
+  window.addEventListener("blur", () => stopDriveLoop(true));
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopDriveLoop(true);
+    }
   });
 
   ui.saveApiBase.addEventListener("click", async () => {
@@ -320,6 +455,7 @@ function bootstrap() {
   ui.testApiBase.addEventListener("click", testConnection);
 
   ui.clearApiBase.addEventListener("click", () => {
+    stopDriveLoop(false);
     setApiBase("", true);
     clearUI();
     setOnlineState("offline", "No API connectivity");
@@ -328,8 +464,8 @@ function bootstrap() {
 
   refreshStatus();
   refreshSensors();
-  setInterval(refreshStatus, REFRESH_MS * 3);
-  setInterval(refreshSensors, REFRESH_MS);
+  setInterval(refreshStatus, STATUS_REFRESH_MS);
+  setInterval(refreshSensors, SENSOR_REFRESH_MS);
 }
 
 bootstrap();

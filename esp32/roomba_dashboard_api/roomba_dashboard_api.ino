@@ -4,6 +4,7 @@
   What this sketch does:
   - boots the Roomba into START + SAFE mode
   - exposes a small HTTP API for status, sensors, and basic actions
+  - exposes hold-to-drive endpoints for forward, back, left, and right movement
   - caches sensor snapshots so the dashboard can poll without hammering UART
   - optionally protects mutating endpoints with an API key
 
@@ -20,8 +21,8 @@ namespace {
 constexpr int ROOMBA_RX = 16;
 constexpr int ROOMBA_TX = 17;
 
-const char* WIFI_SSID = "YOUR_WIFI_SSID";
-const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
+const char* WIFI_SSID = "motiy7.";
+const char* WIFI_PASS = "80560123";
 const char* WIFI_HOSTNAME = "roomba-dashboard";
 const char* API_KEY = "";
 
@@ -32,9 +33,10 @@ constexpr uint8_t ROOMBA_START_OPCODE = 128;
 constexpr uint8_t ROOMBA_SAFE_OPCODE = 131;
 constexpr uint8_t ROOMBA_SPOT_OPCODE = 134;
 constexpr uint8_t ROOMBA_CLEAN_OPCODE = 135;
+constexpr uint8_t ROOMBA_DRIVE_OPCODE = 137;
 constexpr uint8_t ROOMBA_STOP_OPCODE = 173;
 
-constexpr unsigned long SENSOR_INTERVAL_MS = 5000UL;
+constexpr unsigned long SENSOR_INTERVAL_MS = 500UL;
 constexpr unsigned long WIFI_CONNECT_TIMEOUT_MS = 15000UL;
 constexpr unsigned long WIFI_SETUP_TIMEOUT_MS = 20000UL;
 constexpr unsigned long WIFI_RETRY_INTERVAL_MS = 10000UL;
@@ -53,6 +55,14 @@ constexpr int SENSOR_QUERY_RETRIES = 5;
 constexpr uint16_t QUERY_RETRY_DELAY_MS = 40;
 constexpr uint16_t QUERY_RESPONSE_DELAY_MS = 30;
 constexpr uint16_t ROOMBA_WAKE_DELAY_MS = 120;
+
+constexpr int16_t DRIVE_FORWARD_MM_S = 200;
+constexpr int16_t DRIVE_BACK_MM_S = -200;
+constexpr int16_t DRIVE_STOP_MM_S = 0;
+constexpr int16_t DRIVE_STRAIGHT_RADIUS = static_cast<int16_t>(0x8000);
+constexpr int16_t DRIVE_LEFT_RADIUS = 1;
+constexpr int16_t DRIVE_RIGHT_RADIUS = -1;
+constexpr unsigned long DRIVE_COMMAND_TIMEOUT_MS = 450UL;
 
 HardwareSerial roombaSerial(1);
 WebServer server(80);
@@ -77,6 +87,8 @@ unsigned long lastWifiAttemptAt = 0;
 unsigned long lastCommandAt = 0;
 const char* lastCommand = "none";
 bool roombaReady = false;
+bool driveMotionActive = false;
+unsigned long lastDriveCommandAt = 0;
 
 void addCorsHeaders() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
@@ -94,7 +106,7 @@ void sendUnauthorized() {
 }
 
 void sendActionResponse(const char* action) {
-  char body[48];
+  char body[64];
   snprintf(body, sizeof(body), "{\"ok\":true,\"action\":\"%s\"}", action);
   sendJson(200, body);
 }
@@ -154,10 +166,43 @@ void writeCommand(uint8_t opcode) {
   roombaSerial.flush();
 }
 
+void invalidateSensorCache() {
+  cachedSensors.ok = false;
+  lastSensorReadAt = 0;
+}
+
 void sendRoombaCommand(uint8_t opcode, const char* label) {
   writeCommand(opcode);
   lastCommandAt = millis();
   lastCommand = label;
+  invalidateSensorCache();
+}
+
+void sendDriveCommand(int16_t velocity, int16_t radius, const char* label) {
+  roombaSerial.write(ROOMBA_DRIVE_OPCODE);
+  roombaSerial.write(static_cast<uint8_t>((velocity >> 8) & 0xFF));
+  roombaSerial.write(static_cast<uint8_t>(velocity & 0xFF));
+  roombaSerial.write(static_cast<uint8_t>((radius >> 8) & 0xFF));
+  roombaSerial.write(static_cast<uint8_t>(radius & 0xFF));
+  roombaSerial.flush();
+  lastCommandAt = millis();
+  lastCommand = label;
+  driveMotionActive = velocity != DRIVE_STOP_MM_S;
+  lastDriveCommandAt = driveMotionActive ? lastCommandAt : 0;
+  invalidateSensorCache();
+}
+
+void stopDriveMotionIfTimedOut() {
+  if (!driveMotionActive) {
+    return;
+  }
+
+  const unsigned long now = millis();
+  if ((now - lastDriveCommandAt) <= DRIVE_COMMAND_TIMEOUT_MS) {
+    return;
+  }
+
+  sendDriveCommand(DRIVE_STOP_MM_S, DRIVE_STRAIGHT_RADIUS, "drive_timeout");
 }
 
 void flushRoombaInput() {
@@ -381,6 +426,7 @@ void handleSensors() {
   }
 
   ensureRoombaReady();
+  sampleSensorsIfDue();
   if (!cachedSensors.ok) {
     SensorSnapshot snapshot;
     if (readRoombaSensors(snapshot)) {
@@ -430,12 +476,51 @@ void handleStop() {
   }
 
   ensureRoombaReady();
-  sendRoombaCommand(ROOMBA_STOP_OPCODE, "stop");
-  roombaReady = false;
+  sendDriveCommand(DRIVE_STOP_MM_S, DRIVE_STRAIGHT_RADIUS, "stop");
   sendActionResponse("stop");
 }
 
-void registerRoute(const char* path, HTTPMethod method, THandlerFunction handler) {
+void handleForward() {
+  if (!ensureAuthorized()) {
+    return;
+  }
+
+  ensureRoombaReady();
+  sendDriveCommand(DRIVE_FORWARD_MM_S, DRIVE_STRAIGHT_RADIUS, "forward");
+  sendActionResponse("forward");
+}
+
+void handleBack() {
+  if (!ensureAuthorized()) {
+    return;
+  }
+
+  ensureRoombaReady();
+  sendDriveCommand(DRIVE_BACK_MM_S, DRIVE_STRAIGHT_RADIUS, "back");
+  sendActionResponse("back");
+}
+
+void handleLeft() {
+  if (!ensureAuthorized()) {
+    return;
+  }
+
+  ensureRoombaReady();
+  sendDriveCommand(DRIVE_FORWARD_MM_S, DRIVE_LEFT_RADIUS, "left");
+  sendActionResponse("left");
+}
+
+void handleRight() {
+  if (!ensureAuthorized()) {
+    return;
+  }
+
+  ensureRoombaReady();
+  sendDriveCommand(DRIVE_FORWARD_MM_S, DRIVE_RIGHT_RADIUS, "right");
+  sendActionResponse("right");
+}
+
+void registerRoute(const char* path, HTTPMethod method, WebServer::THandlerFunction handler) {
   server.on(path, method, handler);
   server.on(path, HTTP_OPTIONS, handleOptions);
 }
@@ -445,11 +530,9 @@ void registerRoute(const char* path, HTTPMethod method, THandlerFunction handler
 void setup() {
   Serial.begin(115200);
 
-  // UART1 is dedicated to the Roomba Open Interface port.
   roombaSerial.begin(ROOMBA_BAUD, SERIAL_8N1, ROOMBA_RX, ROOMBA_TX);
   roombaSerial.setTimeout(ROOMBA_READ_TIMEOUT_MS);
 
-  // Give the Roomba serial interface time to wake up before sending START.
   delay(2000);
   ensureRoombaReady();
   connectWifi(false, WIFI_SETUP_TIMEOUT_MS);
@@ -460,17 +543,21 @@ void setup() {
   registerRoute("/api/spot", HTTP_POST, handleSpot);
   registerRoute("/api/safe", HTTP_POST, handleSafe);
   registerRoute("/api/stop", HTTP_POST, handleStop);
+  registerRoute("/api/forward", HTTP_POST, handleForward);
+  registerRoute("/api/back", HTTP_POST, handleBack);
+  registerRoute("/api/left", HTTP_POST, handleLeft);
+  registerRoute("/api/right", HTTP_POST, handleRight);
   server.onNotFound(handleNotFound);
 
   server.begin();
   Serial.println(F("HTTP server ready."));
 
-  // Prime the cache once so the dashboard can render immediately.
   sampleSensorsIfDue();
 }
 
 void loop() {
   server.handleClient();
+  stopDriveMotionIfTimedOut();
   sampleSensorsIfDue();
   connectWifi(false, WIFI_CONNECT_TIMEOUT_MS);
   delay(10);

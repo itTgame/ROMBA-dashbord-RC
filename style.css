@@ -32,6 +32,7 @@ body {
 }
 .header { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
 .title { margin:0; font-size:1.05rem; }
+.section-title { margin: 0 0 10px; font-size: 1.05rem; }
 .status-chip { display:inline-flex; align-items:center; gap:6px; border-radius:999px; border:1px solid var(--line); padding:4px 10px; font-size:.8rem; color:var(--muted); }
 .dot { width:8px; height:8px; border-radius:50%; background:var(--warn); box-shadow:0 0 8px var(--warn); }
 .dot.online { background:var(--ok); box-shadow:0 0 8px var(--ok); }
@@ -55,6 +56,24 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 .api-input { flex:1; min-width:220px; border:1px solid var(--line); background:#0f1a34; color:var(--txt); border-radius:10px; padding:10px; direction:ltr; text-align:left; }
 .api-btn { min-height:42px; padding:10px 12px; font-size:.84rem; border-radius:10px; }
 .quick-steps { margin:0; padding-inline-start:18px; color:var(--muted); font-size:.82rem; line-height:1.55; }
+.drive-title { margin-top: 14px; font-size: .8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.drive-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+  align-items: stretch;
+}
+.drive-pad-spacer { min-height: 50px; }
+.drive-btn {
+  min-height: 52px;
+  background: #1a2a4d;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.drive-btn.stop { background: linear-gradient(180deg,#ff7f90 0%,#dc4a62 100%); }
+.drive-btn.active { box-shadow: 0 0 0 2px rgba(88,208,255,.4) inset; background: linear-gradient(180deg,var(--accent2) 0%,#2799d7 100%); }
 
 .sensor-grid{
   display:grid;
