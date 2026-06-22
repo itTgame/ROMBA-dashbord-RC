@@ -9,11 +9,10 @@ Simple local dashboard for a Roomba 886 connected through an ESP32 REST bridge.
 - Saves the API base address in `localStorage`
 
 ## Start in 2 minutes
-1. From the project folder, run `python3 -m http.server 8000`
-2. Open `http://localhost:8000`
-3. Enter your ESP32 address, for example `http://192.168.1.50`
-4. Click **Save**
-5. Click **Test**
+1. Upload `esp32/roomba_dashboard_api/roomba_dashboard_api.ino` to your ESP32
+2. Connect your phone/PC to the ESP32 Wi‑Fi network `Roomba-886`
+3. Your device should automatically open a captive-portal window with the dashboard
+4. If it doesn’t open automatically, browse to `http://192.168.4.1`
 
 If the header shows `Connected to Roomba`, the setup is working.
 
@@ -46,12 +45,12 @@ If you open the dashboard from another device on your network, replace `localhos
 ```
 
 ## Wiring notes
-1. Open `esp32/roomba_dashboard_api.ino`
-2. Set `WIFI_SSID` and `WIFI_PASS`
+1. Open `esp32/roomba_dashboard_api/roomba_dashboard_api.ino`
+2. (Optional) Change the AP name/password (`WIFI_AP_SSID`, `WIFI_AP_PASS`)
 3. Verify UART wiring: `RX=GPIO16`, `TX=GPIO17`
 4. Upload the sketch with Arduino IDE or PlatformIO
-5. Open Serial Monitor at `115200` baud and confirm the ESP32 prints its IP
-6. In the dashboard, save the API base as `http://<ip>` and click **Test**
+5. Open Serial Monitor at `115200` baud and confirm the ESP32 prints its AP IP (default: `192.168.4.1`)
+6. Open the dashboard at `http://192.168.4.1` (or via captive portal)
 
 If `/api/sensors` returns `sensor_read_failed`, check:
 - TX/RX wiring
